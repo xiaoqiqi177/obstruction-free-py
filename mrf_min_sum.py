@@ -35,7 +35,17 @@ def get_cost_by_motion(I1, I2, edge_points1, edge_points2, point_id1, max_motion
 def get_smoothness_penalty(self_motion_field, neighbor_motion_field, penalty_constant=0.005):
     return penalty_constant * (abs(self_motion_field[0] - neighbor_motion_field[0]) + abs(self_motion_field[1] - neighbor_motion_field[1]))
 
-def min_sum(self_motion_fields, neighbor_messages, max_motion_x, max_motion_y):
+def get_penalty_matrix(max_motion_x, max_motion_y):
+    penalty_matrix = np.zeros((max_motion_x*2-1, max_motion_y*2-1, max_motion_x*2-1, max_motion_y*2-1))
+    for motion_x1 in range(-max_motion_x+1, max_motion_x):
+        for motion_y1 in range(-max_motion_y+1, max_motion_y):
+            for motion_x2 in range(-max_motion_x+1, max_motion_x):
+                for motion_y2 in range(-max_motion_y+1, max_motion_y):
+                    penalty_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1, motion_x2+max_motion_x-1, motion_y2+max_motion_y-1] \
+                            = get_smoothness_penalty((motion_x1, motion_y1), (motion_x2, motion_y2))
+    return penalty_matrix
+
+def min_sum(self_motion_fields, neighbor_messages, penalty_matrix, max_motion_x, max_motion_y):
     message_matrix = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
     neighbor_contribution = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
     for neighbor_message in neighbor_messages:
@@ -43,18 +53,15 @@ def min_sum(self_motion_fields, neighbor_messages, max_motion_x, max_motion_y):
 
     for motion_x1 in range(-max_motion_x+1, max_motion_x): # message recipient motion 
         for motion_y1 in range(-max_motion_y+1, max_motion_y): 
-            min_message = float("inf")
-            for motion_x2 in range(-max_motion_x+1, max_motion_x): # own motion
-                for motion_y2 in range(-max_motion_y+1, max_motion_y):
-                    possible_val = self_motion_fields[motion_x2+max_motion_x-1][motion_y2+max_motion_y-1] + get_smoothness_penalty((motion_x1, motion_y1), (motion_x2, motion_y2)) + neighbor_contribution[motion_x2+max_motion_x-1][motion_y2+max_motion_y-1]
-                    min_message = min(min_message, possible_val)
-            message_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1] = possible_val
+            possible_vals = self_motion_fields + penalty_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1, :, :] + neighbor_contribution
+            min_message = possible_vals.min()
+            message_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1] = min_message
     # maybe no need.
     # message_matrix = message_matrix - np.log(np.exp(message_matrix).sum())
     return message_matrix
 
 directions = [[1, 0], [0, 1], [0, -1], [-1, 0]]
-def pass_message(motion_fields, point_number, edge_points1, edge_points1_map, message_passing_rounds, width, height, max_motion_x, max_motion_y):
+def pass_message(motion_fields, penalty_matrix, point_number, edge_points1, edge_points1_map, message_passing_rounds, width, height, max_motion_x, max_motion_y):
     message_map = np.zeros((point_number, 4, max_motion_x*2-1, max_motion_y*2-1))
     next_message_map = np.zeros((point_number, 4, max_motion_x*2-1, max_motion_y*2-1))
     for m_round in range(message_passing_rounds):
@@ -74,7 +81,7 @@ def pass_message(motion_fields, point_number, edge_points1, edge_points1_map, me
                             if point_new_tmp in edge_points1_map:
                                 neighbor_messages.append(message_map[point_id, i])
                     # populate the new message map with the next round's messages 
-                    next_message_map[edge_points1_map[point_new], 3-d] = min_sum(motion_fields[point_id], neighbor_messages, max_motion_x, max_motion_y)
+                    next_message_map[edge_points1_map[point_new], 3-d] = min_sum(motion_fields[point_id], neighbor_messages, penalty_matrix, max_motion_x, max_motion_y)
         message_map = next_message_map
     return message_map
 
@@ -110,8 +117,9 @@ def produce_motion_fields(I1, I2, edge_image1, edge_image2, height, width, patch
     for point_id in range(point_number):
         motion_fields[point_id, :, :] = get_cost_by_motion(I1, I2, edge_points1, edge_points2, point_id, max_motion_x, max_motion_y, patch_size, width, height)
         edge_points1_map[tuple(edge_points1[point_id])] = point_id
-
-    message_map = pass_message(motion_fields, point_number, edge_points1, edge_points1_map, message_passing_rounds, width, height, max_motion_x,max_motion_y)
+    
+    penalty_matrix = get_penalty_matrix(max_motion_x, max_motion_y)
+    message_map = pass_message(motion_fields, penalty_matrix, point_number, edge_points1, edge_points1_map, message_passing_rounds, width, height, max_motion_x,max_motion_y)
     final_motion_fields = get_belief(motion_fields, message_map, edge_points1, edge_points1_map, point_number, max_motion_x, max_motion_y)
     return final_motion_fields, edge_points1, edge_points1_map
 
@@ -128,9 +136,9 @@ edgeI2 = cv2.resize(edgeI2, (width, height))
 edgeI1 = cv2.resize(edgeI1, (width, height))
 I2 = cv2.resize(I2, (width, height))
 I1 = cv2.resize(I1, (width, height))
-patch_size = 3
-max_motion_x = 3
-max_motion_y = 3
+patch_size = 5
+max_motion_x = 15
+max_motion_y = 15
 message_passing_rounds = 5
 final_motion_fields, edge_points1, edge_points1_map = produce_motion_fields(I1, I2, edgeI1, edgeI2, height, width, patch_size, max_motion_x, max_motion_y, message_passing_rounds)
 
@@ -141,6 +149,8 @@ for point_id, motion_field in enumerate(final_motion_fields):
 
 # Visualize Motion Fields.
 mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
+hsv = np.zeros((height, width, 3), dtype=np.uint8)
+hsv[...,1] = 255
 hsv[...,0] = ang*180/np.pi/2
 hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
 bgr = cv2.cvtColor(hsv,cv2.COLOR_HSV2BGR)
