@@ -11,8 +11,8 @@ def get_patch_pixel_diff(I1, I2, edge_points1, edge_points2, point_id1, motion_x
     # Need to deprecate.
     point1 = edge_points1[point_id1]
     patch1 = I1[point1[0] - patch_size//2:point1[0] + patch_size//2 + 1, point1[1] - patch_size//2:point1[1] + patch_size//2 + 1]
-    point2 = [point1[0] - motion_x, point1[1] - motion_y]
-    patch2 = I2[point2[0]-patch_size//2:point2[0] + patch_size//2 + 1, point1[1] - patch_size//2:point1[1] + patch_size//2 + 1]
+    point2 = [point1[0] + motion_x, point1[1] + motion_y]
+    patch2 = I2[point2[0]-patch_size//2:point2[0] + patch_size//2 + 1, point2[1] - patch_size//2:point2[1] + patch_size//2 + 1]
     coeff = ncc(patch1, patch2)
     return 1. - coeff
 
@@ -21,16 +21,23 @@ def get_cost_by_motion(I1, I2, edge_points1, edge_points2, point_id1, max_motion
     point1 = edge_points1[point_id1]
     max_shift_x = max_motion_x - 1 + patch_size // 2
     max_shift_y = max_motion_y - 1 + patch_size // 2
-    if point1[0] - max_shift_x < 0 or point1[1] - max_shift_y < 0 \
-            or point1[0] + max_shift_x > height or point1[1] + max_shift_y > width:
+    if point1[0] - max_shift_x <= 0 or point1[1] - max_shift_y <= 0 \
+            or point1[0] + max_shift_x >= height or point1[1] + max_shift_y >= width:
                 return motion_cost
-    
+    """
+    for motion_x in range(-max_motion_x+1, max_motion_x):       
+        for motion_y in range(-max_motion_y+1, max_motion_y):       
+            motion_cost[motion_x+max_motion_x-1, motion_y+max_motion_y-1] = get_patch_pixel_diff(I1, I2, edge_points1, edge_points2, point_id1, motion_x, motion_y, patch_size)
+    """
+
     patch1 = I1[point1[0] - patch_size//2:point1[0] + patch_size//2+1, point1[1]-patch_size//2:point1[1] + patch_size//2+1]
     patch2 = I2[point1[0] - max_shift_x:point1[0]+max_shift_x+1, point1[1]-max_shift_y:point1[1]+max_shift_y+1]
-    corrs = signal.correlate2d(patch2, patch1)[patch_size//2+1:-patch_size//2, patch_size//2+1:-patch_size//2]
+    corrs = signal.correlate2d(patch2, patch1)
     sqrt1 = np.sqrt((patch1 * patch1).sum())
-    sqrt2 = np.sqrt(signal.correlate2d(patch2 * patch2, np.ones((patch_size, patch_size)))[patch_size//2+1:-patch_size//2, patch_size//2+1:-patch_size//2])
-    return 1. - motion_cost
+    sqrt2 = np.sqrt(signal.correlate2d(patch2 * patch2, np.ones((patch_size, patch_size))))
+    motion_cost = 1. - corrs / (sqrt1 * sqrt2)
+    motion_cost_ret = motion_cost[patch_size-1:1-patch_size, patch_size-1:1-patch_size]
+    return motion_cost_ret
 
 def get_smoothness_penalty(self_motion_field, neighbor_motion_field, penalty_constant=0.005):
     return penalty_constant * (abs(self_motion_field[0] - neighbor_motion_field[0]) + abs(self_motion_field[1] - neighbor_motion_field[1]))
@@ -50,14 +57,35 @@ def min_sum(self_motion_fields, neighbor_messages, penalty_matrix, max_motion_x,
     neighbor_contribution = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
     for neighbor_message in neighbor_messages:
         neighbor_contribution += neighbor_message
+    
+    """ version 0."""
+    """
+    for motion_x1 in range(-max_motion_x+1, max_motion_x): # message recipient motion         
+         for motion_y1 in range(-max_motion_y+1, max_motion_y):
+             min_message = float("inf")
+             for motion_x2 in range(-max_motion_x+1, max_motion_x): # own motion
+                 for motion_y2 in range(-max_motion_y+1, max_motion_y):
+                     possible_val = self_motion_fields[motion_x2+max_motion_x-1][motion_y2+max_motion_y-1] + get_smoothness_penalty((motion_x1, motion_y1), (motion_x2, motion_y2)) + neighbor_contribution[motion_x2+max_motion_x-1][motion_y2+max_motion_y-1]
+                     min_message = min(min_message, possible_val)
+             message_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1] = min_message
+    """
 
+    """ vesion 1. """
+    """
+    message_matrix1 = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
     for motion_x1 in range(-max_motion_x+1, max_motion_x): # message recipient motion 
         for motion_y1 in range(-max_motion_y+1, max_motion_y): 
             possible_vals = self_motion_fields + penalty_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1, :, :] + neighbor_contribution
             min_message = possible_vals.min()
-            message_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1] = min_message
-    # maybe no need.
-    # message_matrix = message_matrix - np.log(np.exp(message_matrix).sum())
+            message_matrix1[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1] = min_message
+    """
+    
+    """ vesion 2 """
+    possible_vals_matrix = self_motion_fields[None, None, :, :] + penalty_matrix + neighbor_contribution[None, None, :, :]
+    message_matrix = np.min(possible_vals_matrix, (2, 3))
+    
+    # normalization step
+    message_matrix = message_matrix - np.log(np.exp(message_matrix).sum())
     return message_matrix
 
 directions = [[1, 0], [0, 1], [0, -1], [-1, 0]]
@@ -136,7 +164,7 @@ edgeI2 = cv2.resize(edgeI2, (width, height))
 edgeI1 = cv2.resize(edgeI1, (width, height))
 I2 = cv2.resize(I2, (width, height))
 I1 = cv2.resize(I1, (width, height))
-patch_size = 5
+patch_size = 7
 max_motion_x = 15
 max_motion_y = 15
 message_passing_rounds = 5
