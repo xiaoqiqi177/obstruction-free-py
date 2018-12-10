@@ -2,10 +2,13 @@ import numpy as np
 import cv2
 from scipy import signal
 
+# Only used for verification
 def ncc(patch1, patch2):
+    # Need to deprecate.
     return (patch1 * patch2).sum() / np.sqrt((patch1 * patch1).sum() * (patch2 * patch2).sum())
 
 def get_patch_pixel_diff(I1, I2, edge_points1, edge_points2, point_id1, motion_x, motion_y, patch_size):
+    # Need to deprecate.
     point1 = edge_points1[point_id1]
     patch1 = I1[point1[0] - patch_size//2:point1[0] + patch_size//2 + 1, point1[1] - patch_size//2:point1[1] + patch_size//2 + 1]
     point2 = [point1[0] - motion_x, point1[1] - motion_y]
@@ -16,15 +19,18 @@ def get_patch_pixel_diff(I1, I2, edge_points1, edge_points2, point_id1, motion_x
 def get_cost_by_motion(I1, I2, edge_points1, edge_points2, point_id1, max_motion_x, max_motion_y, patch_size, width, height):
     motion_cost = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
     point1 = edge_points1[point_id1]
-    max_shift_x = max_motion_x + patch_size // 2
-    max_shift_y = max_motion_y + patch_size // 2
+    max_shift_x = max_motion_x - 1 + patch_size // 2
+    max_shift_y = max_motion_y - 1 + patch_size // 2
     if point1[0] - max_shift_x < 0 or point1[1] - max_shift_y < 0 \
             or point1[0] + max_shift_x > height or point1[1] + max_shift_y > width:
                 return motion_cost
-    for motion_x in range(-max_motion_x+1, max_motion_x):
-        for motion_y in range(-max_motion_y+1, max_motion_y):
-            motion_cost[motion_x+max_motion_x-1, motion_y+max_motion_y-1] = get_patch_pixel_diff(I1, I2, edge_points1, edge_points2, point_id1, motion_x, motion_y, patch_size)
-    return motion_cost
+    
+    patch1 = I1[point1[0] - patch_size//2:point1[0] + patch_size//2+1, point1[1]-patch_size//2:point1[1] + patch_size//2+1]
+    patch2 = I2[point1[0] - max_shift_x:point1[0]+max_shift_x+1, point1[1]-max_shift_y:point1[1]+max_shift_y+1]
+    corrs = signal.correlate2d(patch2, patch1)[patch_size//2+1:-patch_size//2, patch_size//2+1:-patch_size//2]
+    sqrt1 = np.sqrt((patch1 * patch1).sum())
+    sqrt2 = np.sqrt(signal.correlate2d(patch2 * patch2, np.ones((patch_size, patch_size)))[patch_size//2+1:-patch_size//2, patch_size//2+1:-patch_size//2])
+    return 1. - motion_cost
 
 def get_smoothness_penalty(self_motion_field, neighbor_motion_field, penalty_constant=0.005):
     return penalty_constant * (abs(self_motion_field[0] - neighbor_motion_field[0]) + abs(self_motion_field[1] - neighbor_motion_field[1]))
@@ -67,8 +73,6 @@ def pass_message(motion_fields, point_number, edge_points1, edge_points1_map, me
                             point_new_tmp = (point1[0]+directions[i][0], point1[1]+directions[i][1])
                             if point_new_tmp in edge_points1_map:
                                 neighbor_messages.append(message_map[point_id, i])
-                    if len(neighbor_messages) != 3:
-                        continue
                     # populate the new message map with the next round's messages 
                     next_message_map[edge_points1_map[point_new], 3-d] = min_sum(motion_fields[point_id], neighbor_messages, max_motion_x, max_motion_y)
         message_map = next_message_map
@@ -89,8 +93,6 @@ def get_belief(motion_fields, message_map, edge_points1, edge_points1_map, point
                     point_new_tmp = (point1[0]+directions[i][0], point1[1]+directions[i][1])
                     if point_new_tmp in edge_points1_map:
                         neighbor_belief += neighbors[i][motion_x+max_motion_x-1][motion_y+max_motion_y-1]
-                import IPython
-                IPython.embed()
                 belief = data_cost + neighbor_belief
                 if belief < best_motion_belief:
                     best_motion_belief = belief
@@ -121,20 +123,26 @@ I1 = I1 / 255.
 I2 = I2 / 255.
 
 height, width = edgeI1.shape
-height, width = height//2, width//2
+height, width = height//4, width//4
 edgeI2 = cv2.resize(edgeI2, (width, height))
 edgeI1 = cv2.resize(edgeI1, (width, height))
 I2 = cv2.resize(I2, (width, height))
 I1 = cv2.resize(I1, (width, height))
-patch_size = 5
-max_motion_x = 25
-max_motion_y = 25
+patch_size = 3
+max_motion_x = 3
+max_motion_y = 3
 message_passing_rounds = 5
 final_motion_fields, edge_points1, edge_points1_map = produce_motion_fields(I1, I2, edgeI1, edgeI2, height, width, patch_size, max_motion_x, max_motion_y, message_passing_rounds)
-visualized_motion_fields = np.zeros((height, width, 3), dtype=np.uint8)
+
+flow = np.zeros((height, width, 2))
 for point_id, motion_field in enumerate(final_motion_fields):
     point_pos = edge_points1[point_id]
-    visualized_motion_fields[point_pos[0], point_pos[1], 0] = np.uint8((final_motion_fields[point_id, 0]+max_motion_x) * 255. / (max_motion_x * 2 - 1))
-    visualized_motion_fields[point_pos[0], point_pos[1], 1] = np.uint8((final_motion_fields[point_id, 1]+max_motion_y) * 255. / (max_motion_y * 2 - 1))
-    cv2.imshow('motion_fields', visualized_motion_fields)
-    cv2.waitKey(0)
+    flow[point_pos[0], point_pos[1], :] = final_motion_fields[point_id, :]
+
+# Visualize Motion Fields.
+mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
+hsv[...,0] = ang*180/np.pi/2
+hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
+bgr = cv2.cvtColor(hsv,cv2.COLOR_HSV2BGR)
+cv2.imshow('motion_fields', bgr)
+cv2.waitKey(0)
