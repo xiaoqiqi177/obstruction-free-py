@@ -113,10 +113,10 @@ def produce_motion_fields(I1, I2, edge_image1, edge_image2, height, width, patch
     final_motion_fields = get_belief(motion_fields, message_map, edge_points1, edge_points1_map, point_number, max_motion_x, max_motion_y)
     return final_motion_fields, edge_points1, edge_points1_map
 
-edgeI2 = cv2.imread('edges0.png', 0)
-edgeI1 = cv2.imread('edges2.png',0)
-I2 = cv2.imread('hanoi_input_1.png', 0)
-I1 = cv2.imread('hanoi_input_3.png', 0)
+edgeI2 = cv2.imread('./test_image/edges0.png', 0)
+edgeI1 = cv2.imread('./test_image/edges2.png',0)
+I2 = cv2.imread('./test_image/hanoi_input_1.png', 0)
+I1 = cv2.imread('./test_image/hanoi_input_3.png', 0)
 I1 = I1 / 255.
 I2 = I2 / 255.
 
