@@ -71,8 +71,8 @@ def extract_edgemap(image):
     """
     Extract edge map from image using canny edge detector.
     """
-    return cv2.Canny(image, threshold1=30, threshold2=90)
-
+    edgemap = cv2.Canny(image, threshold1=30, threshold2=90)
+    return edgemap
 
 def calculate_motion(images, edge_maps):
     """
