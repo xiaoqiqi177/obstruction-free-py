@@ -4,10 +4,10 @@ import numpy as np
 
 def scale_images(images, from_shape, to_shape):
     """
-    sample images from from_shape to to_shape.
+    sample images from from_scale to to_scale.
     Args:
         images[Image]: NHW(C) image.
-        from_shape[h, w], to_shape[h, w]
+        from_shape[(h, w)], to_shape[(h, w)]
     """
     scaled_images = []
     for i in range(images.shape[0]):
@@ -28,10 +28,10 @@ def scale_images(images, from_shape, to_shape):
 
 def scale_image(image, from_shape, to_shape):
     """
-    sample images from from_shape to to_shape.
+    sample images from from_scale to to_scale.
     Args:
-        images[Image]: HW(C) image.
-        from_shape[h, w], to_shape[h, w]
+        images[Image]: NHW(C) image.
+        from_shape[(h, w)], to_shape[(h, w)]
     """
     W = image.shape[1]
     H = image.shape[0]

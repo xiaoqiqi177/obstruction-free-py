@@ -69,7 +69,7 @@ def decompose(It, Vt_O, Vt_B, I_O_init, I_B_init, A_init):
     loss += constraint_penalty(I_O) + \
         constraint_penalty(I_B) + constraint_penalty(A)
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=0.01）
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
     train = optimizer.minimize(loss)
 
     with tf.Session() as session:
@@ -78,11 +78,9 @@ def decompose(It, Vt_O, Vt_B, I_O_init, I_B_init, A_init):
             _, loss_val = session.run([train, loss])
             print("step {}:loss = {}".format(step, loss_val))
         I_O, I_B, A = session.run([I_O, I_B, A])
-        
         visualize_image(I_O)
         visualize_image(I_B)
         visualize_image(A)
-    
     return I_O, I_B, A
 
 
@@ -95,6 +93,7 @@ def estimate_motion(It, I_O, I_B, A, Vt_O_init, Vt_B_init):
 
     Vt_O = tf.Variable(Vt_O_init, name='Vt_O', dtype=tf.float32)
     Vt_B = tf.Variable(Vt_B_init, name='Vt_B', dtype=tf.float32)
+
     warp_I_O = tf_warp(It, Vt_O)
     warp_A = tf_warp(tf.tile(tf.expand_dims(A, 0), [5, 1, 1, 1]), Vt_O)
     warp_I_B = tf_warp(tf.tile(tf.expand_dims(I_B, 0), [5, 1, 1, 1]), Vt_B)
@@ -114,10 +113,9 @@ def estimate_motion(It, I_O, I_B, A, Vt_O_init, Vt_B_init):
             _, loss_val = session.run([train, loss])
             print("step {}:loss = {}".format(step, loss_val))
         Vt_O, Vt_B = session.run([Vt_O, Vt_B])
-        
         for i in range(5):
             visualize_dense_motion(Vt_O[i])
-            ovisualize_dense_motion(Vt_B[i])
+            visualize_dense_motion(Vt_B[i])
     return Vt_O, Vt_B
 
 
@@ -147,10 +145,8 @@ def optimize_motion_based_decomposition(It, I_O_init, I_B_init, A_init, Vt_O_ini
 
     for current_scale, num_iterations in zip(params.scales, params.num_iterations_by_scale):
 
-        current_shape = (int(original_shape[0] * current_scale), \
-                int(original_shape[1] * current_scale))
-        print(original_shape, current_shape, previous_shape) 
         # Scale values to proper scale.
+        current_shape = (int(current_scale * original_shape[0]), int(current_scale * original_shape[1]))
         It_scaled = scale_images(
             It, from_shape=original_shape, to_shape=current_shape)
 
@@ -163,17 +159,15 @@ def optimize_motion_based_decomposition(It, I_O_init, I_B_init, A_init, Vt_O_ini
                             to_shape=current_shape)
         Vt_B = scale_images(Vt_B, from_shape=previous_shape,
                             to_shape=current_shape)
-        
         visualize_image(I_O)
         visualize_image(I_B)
         visualize_image(A)
-        
         for _ in range(num_iterations):
             Vt_O, Vt_B = estimate_motion(It_scaled, I_O, I_B, A, Vt_O, Vt_B)
             I_O, I_B, A = decompose(
                 It_scaled, Vt_O, Vt_B, I_O, I_B, A)
 
-            previous_shape = current_shape
+        previous_shape = current_shape
 
     # TODO: check return value
     return

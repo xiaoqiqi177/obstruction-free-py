@@ -38,8 +38,8 @@ def min_sum(self_motion_fields, neighbor_messages, w12, penalty_matrix, template
     neighbor_contribution = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
     for neighbor_message in neighbor_messages:
         neighbor_contribution += neighbor_message
-    if len(neighbor_messages):
-        neighbor_contribution = neighbor_contribution / len(neighbor_messages)
+    #if len(neighbor_messages):
+    #    neighbor_contribution = neighbor_contribution / len(neighbor_messages)
     
     real_penalty_matrix = np.min(np.concatenate((w12 * penalty_matrix[None], 0.005*template_one_matrix[None])), axis=0)
     possible_vals_matrix = self_motion_fields[None, None, :, :] + real_penalty_matrix + neighbor_contribution[None, None, :, :]
@@ -96,15 +96,11 @@ def get_belief(motion_fields, message_map, edge_points1, edge_points1_map, point
                 data_cost = motion_fields[point_id][motion_x + max_motion_x-1][motion_y + max_motion_y - 1]
                 neighbor_belief = 0.
                 neighbors = message_map[point_id]
-                valid_neighbor = 0
                 for i in range(4):
                     point_new_tmp = (point1[0]+directions[i][0], point1[1]+directions[i][1])
                     if point_new_tmp in edge_points1_map:
-                        valid_neighbor += 1
                         neighbor_belief += neighbors[i][motion_x+max_motion_x-1][motion_y+max_motion_y-1]
-                belief = data_cost
-                if valid_number > 0:
-                    belief += neighbor_belief / valid_neighbor
+                belief = data_cost + neighbor_belief
                 if belief < best_motion_belief:
                     best_motion_belief = belief
                     best_motion = (motion_x, motion_y)
