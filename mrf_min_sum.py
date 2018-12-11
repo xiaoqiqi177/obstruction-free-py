@@ -61,8 +61,8 @@ def min_sum(self_motion_fields, neighbor_messages, w12, penalty_matrix, template
     neighbor_contribution = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
     for neighbor_message in neighbor_messages:
         neighbor_contribution += neighbor_message
-    #if len(neighbor_messages):
-    #    neighbor_contribution = neighbor_contribution / len(neighbor_messages)
+    if len(neighbor_messages):
+        neighbor_contribution = neighbor_contribution / len(neighbor_messages)
     
     """ version 0."""
     """
