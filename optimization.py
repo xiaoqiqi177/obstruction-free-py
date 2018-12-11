@@ -69,7 +69,7 @@ def decompose(It, Vt_O, Vt_B, I_O_init, I_B_init, A_init):
     loss += constraint_penalty(I_O) + \
         constraint_penalty(I_B) + constraint_penalty(A)
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=1e-6)
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.01）
     train = optimizer.minimize(loss)
 
     with tf.Session() as session:
@@ -78,11 +78,11 @@ def decompose(It, Vt_O, Vt_B, I_O_init, I_B_init, A_init):
             _, loss_val = session.run([train, loss])
             print("step {}:loss = {}".format(step, loss_val))
         I_O, I_B, A = session.run([I_O, I_B, A])
-        """
+        
         visualize_image(I_O)
         visualize_image(I_B)
         visualize_image(A)
-        """
+    
     return I_O, I_B, A
 
 
@@ -114,11 +114,10 @@ def estimate_motion(It, I_O, I_B, A, Vt_O_init, Vt_B_init):
             _, loss_val = session.run([train, loss])
             print("step {}:loss = {}".format(step, loss_val))
         Vt_O, Vt_B = session.run([Vt_O, Vt_B])
-        """
+        
         for i in range(5):
             visualize_dense_motion(Vt_O[i])
-            visualize_dense_motion(Vt_B[i])
-        """
+            ovisualize_dense_motion(Vt_B[i])
     return Vt_O, Vt_B
 
 
@@ -150,6 +149,7 @@ def optimize_motion_based_decomposition(It, I_O_init, I_B_init, A_init, Vt_O_ini
 
         current_shape = (int(original_shape[0] * current_scale), \
                 int(original_shape[1] * current_scale))
+        print(original_shape, current_shape, previous_shape) 
         # Scale values to proper scale.
         It_scaled = scale_images(
             It, from_shape=original_shape, to_shape=current_shape)
@@ -163,11 +163,11 @@ def optimize_motion_based_decomposition(It, I_O_init, I_B_init, A_init, Vt_O_ini
                             to_shape=current_shape)
         Vt_B = scale_images(Vt_B, from_shape=previous_shape,
                             to_shape=current_shape)
-        """
+        
         visualize_image(I_O)
         visualize_image(I_B)
         visualize_image(A)
-        """
+        
         for _ in range(num_iterations):
             Vt_O, Vt_B = estimate_motion(It_scaled, I_O, I_B, A, Vt_O, Vt_B)
             I_O, I_B, A = decompose(
