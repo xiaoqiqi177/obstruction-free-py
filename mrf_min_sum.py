@@ -2,20 +2,6 @@ import numpy as np
 import cv2
 from scipy import signal
 
-# Only used for verification
-def ncc(patch1, patch2):
-    # Need to deprecate.
-    return (patch1 * patch2).sum() / np.sqrt((patch1 * patch1).sum() * (patch2 * patch2).sum())
-
-def get_patch_pixel_diff(I1, I2, edge_points1, edge_points2, point_id1, motion_x, motion_y, patch_size):
-    # Need to deprecate.
-    point1 = edge_points1[point_id1]
-    patch1 = I1[point1[0] - patch_size//2:point1[0] + patch_size//2 + 1, point1[1] - patch_size//2:point1[1] + patch_size//2 + 1]
-    point2 = [point1[0] + motion_x, point1[1] + motion_y]
-    patch2 = I2[point2[0]-patch_size//2:point2[0] + patch_size//2 + 1, point2[1] - patch_size//2:point2[1] + patch_size//2 + 1]
-    coeff = ncc(patch1, patch2)
-    return 1. - coeff
-
 def get_cost_by_motion(I1, I2, edge_points1, edge_points2, point_id1, max_motion_x, max_motion_y, patch_size, width, height):
     motion_cost = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
     point1 = edge_points1[point_id1]
@@ -24,11 +10,6 @@ def get_cost_by_motion(I1, I2, edge_points1, edge_points2, point_id1, max_motion
     if point1[0] - max_shift_x <= 0 or point1[1] - max_shift_y <= 0 \
             or point1[0] + max_shift_x >= height or point1[1] + max_shift_y >= width:
                 return motion_cost
-    """
-    for motion_x in range(-max_motion_x+1, max_motion_x):       
-        for motion_y in range(-max_motion_y+1, max_motion_y):       
-            motion_cost[motion_x+max_motion_x-1, motion_y+max_motion_y-1] = get_patch_pixel_diff(I1, I2, edge_points1, edge_points2, point_id1, motion_x, motion_y, patch_size)
-    """
 
     patch1 = I1[point1[0] - patch_size//2:point1[0] + patch_size//2+1, point1[1]-patch_size//2:point1[1] + patch_size//2+1]
     patch2 = I2[point1[0] - max_shift_x:point1[0]+max_shift_x+1, point1[1]-max_shift_y:point1[1]+max_shift_y+1]
@@ -39,22 +20,18 @@ def get_cost_by_motion(I1, I2, edge_points1, edge_points2, point_id1, max_motion
     motion_cost_ret = motion_cost[patch_size-1:1-patch_size, patch_size-1:1-patch_size]
     return motion_cost_ret
 
-def get_smoothness_penalty(self_motion_field, neighbor_motion_field, penalty_constant=1.):
-    return penalty_constant * (abs(self_motion_field[0] - neighbor_motion_field[0]) + abs(self_motion_field[1] - neighbor_motion_field[1]))
-
 def get_penalty_matrix(max_motion_x, max_motion_y):
-    penalty_matrix = np.zeros((max_motion_x*2-1, max_motion_y*2-1, max_motion_x*2-1, max_motion_y*2-1))
-    template_one_matrix = np.ones((max_motion_x*2-1, max_motion_y*2-1, max_motion_x*2-1, max_motion_y*2-1))*float("inf")
+    penalty_matrix = np.ones((max_motion_x*2-1, max_motion_y*2-1, max_motion_x*2-1, max_motion_y*2-1))
+    template_matrix = np.ones((max_motion_x*2-1, max_motion_y*2-1, max_motion_x*2-1, max_motion_y*2-1))*float("inf")
     for motion_x1 in range(-max_motion_x+1, max_motion_x):
         for motion_y1 in range(-max_motion_y+1, max_motion_y):
             for motion_x2 in range(-max_motion_x+1, max_motion_x):
                 for motion_y2 in range(-max_motion_y+1, max_motion_y):
-                    penalty_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1, motion_x2+max_motion_x-1, motion_y2+max_motion_y-1] \
-                            = 1.
-                            #get_smoothness_penalty((motion_x1, motion_y1), (motion_x2, motion_y2))
                     if abs(motion_x1 - motion_x2) + abs(motion_y1 - motion_y2) == 1:
-                        template_one_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1, motion_x2+max_motion_x-1, motion_y2+max_motion_y-1] = 1.
-    return penalty_matrix, template_one_matrix
+                        template_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1, motion_x2+max_motion_x-1, motion_y2+max_motion_y-1] = 1.
+                    if abs(motion_x1 - motion_x2) + abs(motion_y1 - motion_y2) == 0:
+                        template_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1, motion_x2+max_motion_x-1, motion_y2+max_motion_y-1] = 0.
+    return penalty_matrix, template_matrix
 
 def min_sum(self_motion_fields, neighbor_messages, w12, penalty_matrix, template_one_matrix, max_motion_x, max_motion_y):
     message_matrix = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
@@ -64,29 +41,6 @@ def min_sum(self_motion_fields, neighbor_messages, w12, penalty_matrix, template
     if len(neighbor_messages):
         neighbor_contribution = neighbor_contribution / len(neighbor_messages)
     
-    """ version 0."""
-    """
-    for motion_x1 in range(-max_motion_x+1, max_motion_x): # message recipient motion         
-         for motion_y1 in range(-max_motion_y+1, max_motion_y):
-             min_message = float("inf")
-             for motion_x2 in range(-max_motion_x+1, max_motion_x): # own motion
-                 for motion_y2 in range(-max_motion_y+1, max_motion_y):
-                     possible_val = self_motion_fields[motion_x2+max_motion_x-1][motion_y2+max_motion_y-1] + get_smoothness_penalty((motion_x1, motion_y1), (motion_x2, motion_y2)) + neighbor_contribution[motion_x2+max_motion_x-1][motion_y2+max_motion_y-1]
-                     min_message = min(min_message, possible_val)
-             message_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1] = min_message
-    """
-
-    """ vesion 1. """
-    """
-    message_matrix1 = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
-    for motion_x1 in range(-max_motion_x+1, max_motion_x): # message recipient motion 
-        for motion_y1 in range(-max_motion_y+1, max_motion_y): 
-            possible_vals = self_motion_fields + penalty_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1, :, :] + neighbor_contribution
-            min_message = possible_vals.min()
-            message_matrix1[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1] = min_message
-    """
-    
-    """ vesion 2. """
     real_penalty_matrix = np.min(np.concatenate((w12 * penalty_matrix[None], 0.005*template_one_matrix[None])), axis=0)
     possible_vals_matrix = self_motion_fields[None, None, :, :] + real_penalty_matrix + neighbor_contribution[None, None, :, :]
     message_matrix = np.min(possible_vals_matrix, (2, 3))
@@ -142,11 +96,15 @@ def get_belief(motion_fields, message_map, edge_points1, edge_points1_map, point
                 data_cost = motion_fields[point_id][motion_x + max_motion_x-1][motion_y + max_motion_y - 1]
                 neighbor_belief = 0.
                 neighbors = message_map[point_id]
+                valid_neighbor = 0
                 for i in range(4):
                     point_new_tmp = (point1[0]+directions[i][0], point1[1]+directions[i][1])
                     if point_new_tmp in edge_points1_map:
+                        valid_neighbor += 1
                         neighbor_belief += neighbors[i][motion_x+max_motion_x-1][motion_y+max_motion_y-1]
-                belief = data_cost + neighbor_belief
+                belief = data_cost
+                if valid_number > 0:
+                    belief += neighbor_belief / valid_neighbor
                 if belief < best_motion_belief:
                     best_motion_belief = belief
                     best_motion = (motion_x, motion_y)
@@ -169,10 +127,10 @@ def produce_motion_fields(I1, I2, edge_image1, edge_image2, height, width, patch
     final_motion_fields = get_belief(motion_fields, message_map, edge_points1, edge_points1_map, point_number, max_motion_x, max_motion_y)
     return final_motion_fields, edge_points1, edge_points1_map
 
-edgeI2 = cv2.imread('./test_image/edges0.png', 0)
-edgeI1 = cv2.imread('./test_image/edges2.png',0)
-I2 = cv2.imread('./test_image/hanoi_input_1.png', 0)
-I1 = cv2.imread('./test_image/hanoi_input_3.png', 0)
+edgeI2 = cv2.imread('./test_image/edge_dorm_1.png', 0)
+edgeI1 = cv2.imread('./test_image/edge_dorm_2.png',0)
+I2 = cv2.imread('./test_image/dorm1_1.png', 0)
+I1 = cv2.imread('./test_image/dorm1_2.png', 0)
 I1 = I1 / 255.
 I2 = I2 / 255.
 
