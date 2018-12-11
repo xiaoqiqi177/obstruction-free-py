@@ -49,11 +49,12 @@ def edgeflow(img_before, img_after, edge_before, edge_after):
     cv2.imshow("", edge_after)
     cv2.waitKey(0)
     '''
+
     edge_after_points, status, _ = cv2.calcOpticalFlowPyrLK(
-        prevImg=cv2.blur(img_before, (3, 3)),
-        nextImg=cv2.blur(img_after, (3, 3)),
+        prevImg=cv2.blur(img_before, (5, 5)),
+        nextImg=cv2.blur(img_after, (5, 5)),
         prevPts=edge_before_points[:, :, ::-1],
-        nextPts=None,
+        nextPts=None
     )
 
     edge_after_points = edge_after_points[:, :, ::-1]
