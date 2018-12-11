@@ -2,9 +2,10 @@ import cv2
 import numpy as np
 import logging
 
+from scipy.interpolate import griddata
 from estimate_motion import edgeflow
 from ransac import RANSACModel, ransac
-from visualize import visualize_edgeflow, visualize_separated_motion
+from visualize import visualize_edgeflow, visualize_separated_motion, visualize_dense_motion
 
 # Deprecated.
 
@@ -71,8 +72,8 @@ def extract_edgemap(image):
     """
     Extract edge map from image using canny edge detector.
     """
-    edgemap = cv2.Canny(image, threshold1=30, threshold2=90)
-    return edgemap
+    return cv2.Canny(image, threshold1=30, threshold2=90)
+
 
 def calculate_motion(images, edge_maps):
     """
@@ -99,7 +100,23 @@ def calculate_motion(images, edge_maps):
     return edge_motions
 
 
-def separate_motion_fields(sparse_motions):
+def interpolate_dense_motion_from_sparse_motion(sparse_motion, image_shape):
+    grid_x, grid_y = np.mgrid[0:image_shape[0], 0:image_shape[1]]
+    points = sparse_motion[:, :2]
+    delta_y = sparse_motion[:, 2]
+    delta_x = sparse_motion[:, 3]
+    delta_y_grid = griddata(points, delta_y,
+                            (grid_x, grid_y), method='cubic', fill_value=0)
+    delta_x_grid = griddata(points, delta_x,
+                            (grid_x, grid_y), method='cubic', fill_value=0)
+
+    dense_motion = np.stack([delta_y_grid, delta_x_grid], axis=-1)
+    visualize_dense_motion(dense_motion)
+    import ipdb
+    ipdb.set_trace()
+
+
+def separate_and_densify_motion_fields(sparse_motions, image_shape):
     """
     Separate motion fields into obstruction and background
     by fitting perspective transform and do RANSAC.
@@ -123,44 +140,39 @@ def separate_motion_fields(sparse_motions):
         obstruction_motion, _ = fit_perspective(remain_motion_points)
         logging.info("Classify {} motion points as obstruction.".format(
             len(obstruction_motion)))
-        background_motions.append(background_motion)
-        obstruction_motions.append(obstruction_motion)
+        background_motions.append(
+            interpolate_dense_motion_from_sparse_motion(background_motion, image_shape))
+        obstruction_motions.append(
+            interpolate_dense_motion_from_sparse_motion(obstruction_motion, image_shape))
 
     return obstruction_motions, background_motions
 
 
 def initial_motion_estimation(images, cached):
-    if cached:
-        try:
-            obstruction_motions, background_motions = np.load(
-                "./initial_motion.npy")
-            obstruction_motions = [obstruction_motions[i]
-                                   for i in range(len(images))]
-            background_motions = [background_motions[i]
-                                  for i in range(len(images))]
-            return obstruction_motions, background_motions
-        except Exception as error:
-            logging.info(error)
-            logging.info("no cache found.")
 
     edge_maps = [extract_edgemap(image) for image in images]
     motions = calculate_motion(images, edge_maps)
-    obstruction_motions, background_motions = separate_motion_fields(motions)
+    obstruction_motions, background_motions = separate_and_densify_motion_fields(
+        motions, images[0].shape)
 
-    for om, bm, img in zip(obstruction_motions, background_motions, images):
-        visualize_separated_motion(om, bm, img.shape)
-
-    np.save("./initial_motion.npy",
-            (obstruction_motions, background_motions))
-    logging.info("saved.")
+    # for om, bm, img in zip(obstruction_motions, background_motions, images):
+    #    visualize_separated_motion(om, bm, img.shape)
 
     return obstruction_motions, background_motions
 
 
-def initial_decomposition(obstruction_motion_maps, dense_motion_maps):
-    raise NotImplementedError
+def align_background(obstruction_motions, background_motions):
+    # reference_background =
+    reference_background = background_motions[len(background_motions)//2]
+    logging.info("Use frame {} as reference.".format(
+        len(background_motions)//2))
+
+
+def initial_decomposition(obstruction_motions, background_motions):
+    align_background(
+        obstruction_motions, background_motions)
     # return It, I_O_init, I_B_init, A_init, Vt_O_init, Vt_B_init
 
 
 def initialize_motion_based_decomposition(images, cached):
-    return initial_decomposition(*initial_motion_estimation(images, cached), cached)
+    return initial_decomposition(*initial_motion_estimation(images, cached))

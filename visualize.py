@@ -30,6 +30,31 @@ def visualize_edgeflow(edgeflow, image_shape):
     cv2.destroyAllWindows()
 
 
+def visualize_image(img):
+    cv2.imshow("image", img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+def visualize_dense_motion(dense_flow):
+    """
+    Args:
+        dense_flow[array]: shape (h,w,2)
+        image_shape[list]: of (h, w)
+    """
+    # some visualization code port from stackoverflow.
+    hsv = np.zeros(
+        (dense_flow.shape[0], dense_flow.shape[1], 3), dtype=np.uint8)
+    hsv[..., 1] = 255
+    magnitude, angle = cv2.cartToPolar(dense_flow[..., 0], dense_flow[..., 1])
+    hsv[..., 0] = angle * 180 / np.pi / 2
+    hsv[..., 2] = cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX)
+    bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+    cv2.imshow("colored flow", bgr)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
 def draw_on_image(image, motion, color):
     indices = motion[:, :2].astype(np.int).transpose()
     indices = (indices[0], indices[1])
