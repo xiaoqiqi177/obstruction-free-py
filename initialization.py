@@ -72,10 +72,11 @@ def extract_edgemap(image):
     """
     Extract edge map from image using canny edge detector.
     """
+    image = cv2.blur(image, (3, 3))
     return cv2.Canny(image, threshold1=30, threshold2=90)
 
 
-def calculate_motion(images, edge_maps):
+def calculate_motion(images, edge_maps, cached):
     """
     Calculate sparse motion map with images and edge maps
     by solving discrete Markov Random field.
@@ -83,19 +84,14 @@ def calculate_motion(images, edge_maps):
     logging.info("calculating motion.")
     edge_motions = []
     for idx in range(len(images)):
-        if idx != len(images)-1:
-            edge_motion = edgeflow(img_before=images[idx],
-                                   img_after=images[idx+1],
-                                   edge_before=edge_maps[idx],
-                                   edge_after=edge_maps[idx+1])
+        if idx == 2:
+            continue
         else:
-            edge_motion = edgeflow(img_before=images[idx],
-                                   img_after=images[idx-1],
-                                   edge_before=edge_maps[idx],
-                                   edge_after=edge_maps[idx-1])
-            # reverse direction for final image.
-            edge_motion[:, 2:] = -edge_motion[:, 2:]
-        # visualize_edgeflow(edge_motion, images[idx].shape)
+            edge_motion = edgeflow(img_before=images[2],
+                                   img_after=images[idx],
+                                   edge_before=edge_maps[2],
+                                   edge_after=edge_maps[idx])
+        visualize_edgeflow(edge_motion, images[idx].shape)
         edge_motions.append(edge_motion)
     return edge_motions
 
@@ -151,12 +147,12 @@ def separate_and_densify_motion_fields(sparse_motions, image_shape):
 def initial_motion_estimation(images, cached):
 
     edge_maps = [extract_edgemap(image) for image in images]
-    motions = calculate_motion(images, edge_maps)
+    motions = calculate_motion(images, edge_maps, cached)
     obstruction_motions, background_motions = separate_and_densify_motion_fields(
         motions, images[0].shape)
 
-    # for om, bm, img in zip(obstruction_motions, background_motions, images):
-    #    visualize_separated_motion(om, bm, img.shape)
+    for om, bm, img in zip(obstruction_motions, background_motions, images):
+        visualize_separated_motion(om, bm, img.shape)
 
     return obstruction_motions, background_motions
 

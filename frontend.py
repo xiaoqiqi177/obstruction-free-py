@@ -10,7 +10,6 @@ from optimization import optimize_motion_based_decomposition, OptimizationParams
 
 from generate_fake_initialization import generate_fake_initialization
 
-
 def read_images(image_dir):
     """
     read images in grayscale.
@@ -99,7 +98,9 @@ def main():
                         action="store_true",
                         help="use cached value when possible.")
     args = parser.parse_args()
-    motion_based_decomposition_from_gt(args.image_dir)
+    import IPython
+    IPython.embed()
+    motion_based_decomposition(args.image_dir, args.cached)
 
 
 if __name__ == "__main__":

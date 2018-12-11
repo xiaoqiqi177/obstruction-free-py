@@ -84,7 +84,7 @@ def calculate_w12(I1, point1, point_new):
         I1: input image
         point1: current point
         point_new: neighboring point
-    Outs:
+    Outputs:
         w12: penalty weight
     """
     
@@ -214,7 +214,7 @@ I1 = cv2.resize(I1, (width, height))
 patch_size = 5
 max_motion_x = 15
 max_motion_y = 15
-message_passing_rounds = 5
+message_passing_rounds = 15
 
 final_motion_fields, edge_points1 = produce_motion_fields(I1, I2, edgeI1, patch_size, max_motion_x, max_motion_y, message_passing_rounds)
 
