@@ -2,20 +2,21 @@ import cv2
 import numpy as np
 
 
-def scale_images(images, from_scale, to_scale):
+def scale_images(images, from_shape, to_shape):
     """
     sample images from from_scale to to_scale.
     Args:
         images[Image]: NHW(C) image.
-        scale[float], to_scale[float]
+        from_shape[(h, w)], to_shape[(h, w)]
     """
     scaled_images = []
     for i in range(images.shape[0]):
         W = images.shape[2]
         H = images.shape[1]
+        assert H == from_shape[0] and W == from_shape[1]
         C = images.shape[3]
-        new_W = int(W / from_scale * to_scale)
-        new_H = int(H / from_scale * to_scale)
+        new_W = to_shape[1]
+        new_H = to_shape[0]
         if C == 1:
             scaled_images.append(cv2.resize(
                 images[i], (new_W, new_H))[..., np.newaxis])
@@ -25,18 +26,19 @@ def scale_images(images, from_scale, to_scale):
     return np.array(scaled_images)
 
 
-def scale_image(image, from_scale, to_scale):
+def scale_image(image, from_shape, to_shape):
     """
     sample images from from_scale to to_scale.
     Args:
-        images[Image]: HW(C) image.
-        scale[float], to_scale[float]
+        images[Image]: NHW(C) image.
+        from_shape[(h, w)], to_shape[(h, w)]
     """
     W = image.shape[1]
     H = image.shape[0]
+    assert H == from_shape[0] and W == from_shape[1]
     C = image.shape[2]
-    new_W = int(W / from_scale * to_scale)
-    new_H = int(H / from_scale * to_scale)
+    new_W = to_shape[1]
+    new_H = to_shape[0]
     if C == 1:
         return cv2.resize(image, (new_W, new_H))[..., np.newaxis]
     else:

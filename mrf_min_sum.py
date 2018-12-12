@@ -74,7 +74,6 @@ def min_sum(self_motion_fields, neighbor_messages, w12, penalty_template_matrix,
     infindex = np.isinf(real_penalty_matrix)
     real_penalty_matrix[infindex] = w12 * np.ones_like(penalty_template_matrix)[infindex]
 
-    # real_penalty_matrix = np.min(np.concatenate((w12 * np.ones_like(penalty_template_matrix)[None], small_weight*penalty_template_matrix[None])), axis=0)
     possible_vals_matrix = self_motion_fields[None, None, :, :] + real_penalty_matrix + neighbor_contribution[None, None, :, :]
     message_matrix = np.min(possible_vals_matrix, (2, 3))
     
@@ -88,7 +87,8 @@ def calculate_w12(I1, point1, point_new):
         I1: input image
         point1: current point
         point_new: neighboring point
-    Outs:
+
+    Outputs:
         w12: penalty weight
     """
     
@@ -206,13 +206,10 @@ def produce_motion_fields(I1, I2, edge_image1, patch_size, max_motion_x, max_mot
     final_motion_fields = get_belief(motion_fields, message_map, edge_points1, edge_points1_map, max_motion_x, max_motion_y)
     return final_motion_fields, edge_points1
 
-# edgeI1 = cv2.imread('./test_image/edge_dorm_0.png',0)
-# I1 = cv2.imread('./test_image/dorm1_0.png', 0) / 255.
-# I2 = cv2.imread('./test_image/dorm1_1.png', 0) / 255.
 
-edgeI1 = cv2.imread('./test_image/edges2.png',0)
-I2 = cv2.imread('./test_image/hanoi_input_2.png', 0) / 255.
-I1 = cv2.imread('./test_image/hanoi_input_3.png', 0) / 255.
+edgeI1 = cv2.imread('./test_image/edge_dorm_0.png',0)
+I1 = cv2.imread('./test_image/dorm1_0.png', 0) / 255.
+I2 = cv2.imread('./test_image/dorm1_1.png', 0) / 255.
 
 height, width = edgeI1.shape
 height, width = height//4, width//4
@@ -222,7 +219,7 @@ I1 = cv2.resize(I1, (width, height))
 patch_size = 5
 max_motion_x = 15
 max_motion_y = 15
-message_passing_rounds = 10
+message_passing_rounds = 50
 
 final_motion_fields, edge_points1 = produce_motion_fields(I1, I2, edgeI1, patch_size, max_motion_x, max_motion_y, message_passing_rounds)
 
@@ -244,4 +241,4 @@ hsv[...,1] = 255
 hsv[...,0] = ang*180/np.pi/2
 hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
 bgr = cv2.cvtColor(hsv,cv2.COLOR_HSV2BGR)
-cv2.imwrite('motion_fields_10.png', bgr)
+cv2.imwrite('motion_fields.png', bgr)

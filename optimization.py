@@ -133,8 +133,8 @@ def optimize_motion_based_decomposition(It, I_O_init, I_B_init, A_init, Vt_O_ini
         params[OptimizationParams]: params for the optimization
     """
 
-    original_scale = 1.
-    previous_scale = original_scale
+    original_shape = It.shape[1:3]
+    previous_shape = original_shape
 
     # initialize all values
     I_O = I_O_init
@@ -146,18 +146,19 @@ def optimize_motion_based_decomposition(It, I_O_init, I_B_init, A_init, Vt_O_ini
     for current_scale, num_iterations in zip(params.scales, params.num_iterations_by_scale):
 
         # Scale values to proper scale.
+        current_shape = (int(current_scale * original_shape[0]), int(current_scale * original_shape[1]))
         It_scaled = scale_images(
-            It, from_scale=original_scale, to_scale=current_scale)
+            It, from_shape=original_shape, to_shape=current_shape)
 
-        I_O = scale_image(I_O, from_scale=previous_scale,
-                          to_scale=current_scale)
-        I_B = scale_image(I_B, from_scale=previous_scale,
-                          to_scale=current_scale)
-        A = scale_image(A, from_scale=previous_scale, to_scale=current_scale)
-        Vt_O = scale_images(Vt_O, from_scale=previous_scale,
-                            to_scale=current_scale)
-        Vt_B = scale_images(Vt_B, from_scale=previous_scale,
-                            to_scale=current_scale)
+        I_O = scale_image(I_O, from_shape=previous_shape,
+                          to_shape=current_shape)
+        I_B = scale_image(I_B, from_shape=previous_shape,
+                          to_shape=current_shape)
+        A = scale_image(A, from_shape=previous_shape, to_shape=current_shape)
+        Vt_O = scale_images(Vt_O, from_shape=previous_shape,
+                            to_shape=current_shape)
+        Vt_B = scale_images(Vt_B, from_shape=previous_shape,
+                            to_shape=current_shape)
         visualize_image(I_O)
         visualize_image(I_B)
         visualize_image(A)
@@ -166,7 +167,7 @@ def optimize_motion_based_decomposition(It, I_O_init, I_B_init, A_init, Vt_O_ini
             I_O, I_B, A = decompose(
                 It_scaled, Vt_O, Vt_B, I_O, I_B, A)
 
-        previous_scale = current_scale
+        previous_shape = current_shape
 
     # TODO: check return value
     return
