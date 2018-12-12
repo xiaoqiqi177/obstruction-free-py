@@ -3,3 +3,4 @@
 *.npy
 data
 __pycache__
+.idea
