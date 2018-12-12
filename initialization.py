@@ -203,6 +203,7 @@ def initialize_motion_based_decomposition(images, otype, cached):
     _, A = cv2.threshold(difference, 0.1, 1, cv2.THRESH_BINARY_INV)
     A_init = A[..., np.newaxis]
     # compute Initial I_O
+    """
     height, width = It.shape[1:3]
     warpy, warpx, I_B_warp = warpImg(I_B_init, background_motions[1])
     I_B_warp_np = np.zeros((height, width, 1))
@@ -215,7 +216,9 @@ def initialize_motion_based_decomposition(images, otype, cached):
     warpy, warpx, I_O_init = warpImg(I_O_init, obstruction_motions[1])
     I_O_np = np.zeros((height, width, 1))
     I_O_np[warpy, warpx] = I_O_init
+    """
+    I_O = It[2] - I_B_init * A_init
     Vt_O_init = obstruction_motions
     Vt_B_init = background_motions
-    return It, I_O_np, I_B_init, A_init, Vt_O_init, Vt_B_init
+    return It, I_O, I_B_init, A_init, Vt_O_init, Vt_B_init
 
