@@ -113,8 +113,7 @@ def interpolate_dense_motion_from_sparse_motion(sparse_motion, image_shape):
 
     dense_motion = np.stack([delta_y_grid, delta_x_grid], axis=-1)
     visualize_dense_motion(dense_motion)
-    import ipdb
-    ipdb.set_trace()
+    return dense_motion
 
 
 def separate_and_densify_motion_fields(sparse_motions, image_shape):
@@ -163,18 +162,55 @@ def initial_motion_estimation(images, cached):
     return obstruction_motions, background_motions
 
 
-def align_background(obstruction_motions, background_motions):
-    # reference_background =
+def align_background(It, background_motions, otype):
+    assert otype == 'r' or otype == 'o'
     reference_background = background_motions[len(background_motions)//2]
     logging.info("Use frame {} as reference.".format(
         len(background_motions)//2))
+    height, width = It.shape[1:3]
+    if otype == 'r':
+        I_B = np.ones((height, width, 1))
+        for frame_id in len(background_motions):
+            for y in range(height):
+                for x in range(width):
+                    warpx = x + background_motions[frame_id, y, x, 1]
+                    warpy = y + background_motions[frame_id, y, x, 0]
+                    if warpx < 0 or warpy < 0 or warpx >= width or warpy >= height:
+                        continue
+                    else:
+                        I_B[y, x, :] = min(I_B[y, x, :], It[frame_id, warpy, warpx])
+    else:
+        I_B = np.zeros((height, width, 1))
+        for frame_id in len(background_motions):
+            for y in range(height):
+                for x in range(width):
+                    warpx = x + background_motions[frame_id, y, x, 1]
+                    warpy = y + background_motions[frame_id, y, x, 0]
+                    if warpx < 0 or warpy < 0 or warpx >= width or warpy >= height:
+                        continue
+                    else:
+                        I_B[y, x, :] += It[frame_id, warpy, warpx]
+    return I_B
 
+def initialize_motion_based_decomposition(images, otype, cached):
+    assert otype == 'r' or otype == 'o'
+    obstruction_motions, background_motions = initial_motion_estimation(images, cached)
+    It = np.array([img / 255. for img in images])
+    I_B_init = align_background(
+        It, background_motions, otype)
+    if otype == 'o':
+        difference = abs(It[2] - I_B)
+        _, A = cv2.threshold(difference, 0.1, 1, cv2.THRESH_BINARY_INV)
+        A_init = A[..., np.newaxis]
+       
+        #I_O is actually the I_O * (1 - A)
+        I_O = It[2] - I_B * A
+    elif otype == 'r':
+        A_init = None
+        I_O = It[2] - I_B
+    Vt_O_init = obstruction_motions
+    Vt_B_init = background_motions
+    import IPython
+    IPython.embed()
+    return It, I_O_init, I_B_init, A_init, Vt_O_init, Vt_B_init
 
-def initial_decomposition(obstruction_motions, background_motions):
-    align_background(
-        obstruction_motions, background_motions)
-    # return It, I_O_init, I_B_init, A_init, Vt_O_init, Vt_B_init
-
-
-def initialize_motion_based_decomposition(images, cached):
-    return initial_decomposition(*initial_motion_estimation(images, cached))

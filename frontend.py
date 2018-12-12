@@ -8,7 +8,7 @@ import os
 from initialization import initialize_motion_based_decomposition
 from optimization import optimize_motion_based_decomposition, OptimizationParams
 
-from generate_fake_initialization import generate_fake_initialization
+#from generate_fake_initialization import generate_fake_initialization
 
 def read_images(image_dir):
     """
@@ -21,11 +21,12 @@ def read_images(image_dir):
     return images
 
 
-def motion_based_decomposition(image_dir, cached):
+def motion_based_decomposition(image_dir, otype='r', cached=False):
     """
     Do motion based decomposition.
     Args:
         image_dir[list(str)]: path to images.
+        otype: 'r', reflection; 'o', obstruction
     """
 
     logging.info("reading images.")
@@ -33,7 +34,7 @@ def motion_based_decomposition(image_dir, cached):
 
     logging.info("initializing values.")
     It, I_O_init, I_B_init, A_init, Vt_O_init, Vt_B_init\
-        = initialize_motion_based_decomposition(images, cached)
+        = initialize_motion_based_decomposition(images, otype, cached)
 
     optimization_params = OptimizationParams(
         scales=[1./8, 1./4, 1./2, 1],
@@ -98,7 +99,7 @@ def main():
                         action="store_true",
                         help="use cached value when possible.")
     args = parser.parse_args()
-    motion_based_decomposition(args.image_dir, args.cached)
+    motion_based_decomposition(args.image_dir, otype='r', cached=args.cached)
 
 
 if __name__ == "__main__":
