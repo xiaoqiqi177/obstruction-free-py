@@ -4,7 +4,8 @@ import logging
 
 from scipy.interpolate import griddata
 from estimate_motion import edgeflow
-from ransac import RANSACModel, ransac
+from ransac import RANSACModel
+from warp import tf_warp
 from visualize import visualize_edgeflow, visualize_separated_motion, visualize_dense_motion
 
 # Deprecated.
@@ -96,7 +97,7 @@ def calculate_motion(images, edge_maps, cached):
                                    edge_after=edge_maps[idx-1])
             # reverse direction for final image.
             edge_motion[:, 2:] = -edge_motion[:, 2:]
-        visualize_edgeflow(edge_motion, images[idx].shape)
+        # visualize_edgeflow(edge_motion, images[idx].shape)
         edge_motions.append(edge_motion)
     return edge_motions
 
@@ -112,7 +113,7 @@ def interpolate_dense_motion_from_sparse_motion(sparse_motion, image_shape):
                             (grid_x, grid_y), method='cubic', fill_value=0)
 
     dense_motion = np.stack([delta_y_grid, delta_x_grid], axis=-1)
-    visualize_dense_motion(dense_motion)
+    # visualize_dense_motion(dense_motion)
     return dense_motion
 
 
@@ -156,61 +157,65 @@ def initial_motion_estimation(images, cached):
     obstruction_motions, background_motions = separate_and_densify_motion_fields(
         motions, images[0].shape)
 
-    for om, bm, img in zip(obstruction_motions, background_motions, images):
-        visualize_separated_motion(om, bm, img.shape)
+    # for om, bm, img in zip(obstruction_motions, background_motions, images):
+    #     visualize_separated_motion(om, bm, img.shape)
 
     return obstruction_motions, background_motions
 
+def warpImg(img, motions):
+    height, width = img.shape[0:2]
+    x, y = np.meshgrid(range(width), range(height))
+    warpx = x + motions[y, x, 1]
+    warpy = y + motions[y, x, 0]
+    valid_y_index, valid_x_index = np.where((warpx >= 0) & (warpx < width) & (warpy >= 0) & (warpy < height))
+    warpy = warpy[valid_y_index, valid_x_index].astype(int)
+    warpx = warpx[valid_y_index, valid_x_index].astype(int)
+    return warpy, warpx, img[y[valid_y_index, valid_x_index], x[valid_y_index, valid_x_index]]
 
 def align_background(It, background_motions, otype):
     assert otype == 'r' or otype == 'o'
-    reference_background = background_motions[len(background_motions)//2]
     logging.info("Use frame {} as reference.".format(
         len(background_motions)//2))
     height, width = It.shape[1:3]
     if otype == 'r':
         I_B = np.ones((height, width, 1))
-        for frame_id in len(background_motions):
-            for y in range(height):
-                for x in range(width):
-                    warpx = x + background_motions[frame_id, y, x, 1]
-                    warpy = y + background_motions[frame_id, y, x, 0]
-                    if warpx < 0 or warpy < 0 or warpx >= width or warpy >= height:
-                        continue
-                    else:
-                        I_B[y, x, :] = min(I_B[y, x, :], It[frame_id, warpy, warpx])
+        for frame_id in range(len(background_motions)):
+            warpy, warpx, warp_img = warpImg(It[frame_id, :, :, :], background_motions[frame_id])
+            I_B[warpy, warpx, :] = np.minimum(I_B[warpy, warpx, :], warp_img)
     else:
         I_B = np.zeros((height, width, 1))
-        for frame_id in len(background_motions):
-            for y in range(height):
-                for x in range(width):
-                    warpx = x + background_motions[frame_id, y, x, 1]
-                    warpy = y + background_motions[frame_id, y, x, 0]
-                    if warpx < 0 or warpy < 0 or warpx >= width or warpy >= height:
-                        continue
-                    else:
-                        I_B[y, x, :] += It[frame_id, warpy, warpx]
+        I_B_cnt = np.zeros((height, width, 1))
+        for frame_id in range(len(background_motions)):
+            warpy, warpx, warp_img = warpImg(It[frame_id, :, :, :], background_motions[frame_id])
+            I_B[warpy, warpx, :] = I_B[warpy, warpx, :] + warp_img
+            I_B_cnt[warpy, warpx, :] += 1
+        I_B = I_B / (I_B_cnt + 1e-8)
     return I_B
 
 def initialize_motion_based_decomposition(images, otype, cached):
     assert otype == 'r' or otype == 'o'
+    # size: 5 * H * W * 2
     obstruction_motions, background_motions = initial_motion_estimation(images, cached)
     It = np.array([img / 255. for img in images])
-    I_B_init = align_background(
-        It, background_motions, otype)
-    if otype == 'o':
-        difference = abs(It[2] - I_B)
-        _, A = cv2.threshold(difference, 0.1, 1, cv2.THRESH_BINARY_INV)
-        A_init = A[..., np.newaxis]
-       
-        #I_O is actually the I_O * (1 - A)
-        I_O = It[2] - I_B * A
-    elif otype == 'r':
-        A_init = None
-        I_O = It[2] - I_B
+    I_B_init = align_background(It, background_motions, otype)
+    # compute alpha map
+    difference = abs(It[2] - I_B_init)
+    _, A = cv2.threshold(difference, 0.1, 1, cv2.THRESH_BINARY_INV)
+    A_init = A[..., np.newaxis]
+    # compute Initial I_O
+    height, width = It.shape[1:3]
+    warpy, warpx, I_B_warp = warpImg(I_B_init, background_motions[1])
+    I_B_warp_np = np.zeros((height, width, 1))
+    I_B_warp_np[warpy, warpx] = I_B_warp
+    warpy, warpx, A_warp = warpImg(A_init, obstruction_motions[1])
+    A_warp_np = np.zeros((height, width, 1))
+    A_warp_np[warpy, warpx] = A_warp
+    # I_O is actually the I_O * (1 - A)
+    I_O_init = It[1] - A_warp_np * I_B_warp_np
+    warpy, warpx, I_O_init = warpImg(I_O_init, obstruction_motions[1])
+    I_O_np = np.zeros((height, width, 1))
+    I_O_np[warpy, warpx] = I_O_init
     Vt_O_init = obstruction_motions
     Vt_B_init = background_motions
-    import IPython
-    IPython.embed()
-    return It, I_O_init, I_B_init, A_init, Vt_O_init, Vt_B_init
+    return It, I_O_np, I_B_init, A_init, Vt_O_init, Vt_B_init
 

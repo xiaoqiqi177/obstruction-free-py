@@ -207,9 +207,10 @@ def produce_motion_fields(I1, I2, edge_image1, patch_size, max_motion_x, max_mot
     return final_motion_fields, edge_points1
 
 
-edgeI1 = cv2.imread('./test_image/edge_dorm_0.png',0)
-I1 = cv2.imread('./test_image/dorm1_0.png', 0) / 255.
-I2 = cv2.imread('./test_image/dorm1_1.png', 0) / 255.
+cur_frame = 4
+edgeI1 = cv2.imread('./test_image/edge_dorm_' + str(cur_frame) + '.png',0)
+I1 = cv2.imread('./test_image/dorm1_' + str(cur_frame) + '.png', 0) / 255.
+I2 = cv2.imread('./test_image/dorm1_2.png', 0) / 255.
 
 height, width = edgeI1.shape
 height, width = height//4, width//4
@@ -223,7 +224,7 @@ message_passing_rounds = 50
 
 final_motion_fields, edge_points1 = produce_motion_fields(I1, I2, edgeI1, patch_size, max_motion_x, max_motion_y, message_passing_rounds)
 
-np.save('motion_fields.npy', np.array(final_motion_fields))
+np.save('edgeflow_dorm/motion_fields_' + str(cur_frame) + '.npy', np.array(final_motion_fields))
 flow = np.zeros((height, width, 2))
 for point_id, motion_field in enumerate(final_motion_fields):
     point_pos = edge_points1[point_id]
@@ -241,4 +242,4 @@ hsv[...,1] = 255
 hsv[...,0] = ang*180/np.pi/2
 hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
 bgr = cv2.cvtColor(hsv,cv2.COLOR_HSV2BGR)
-cv2.imwrite('motion_fields.png', bgr)
+cv2.imwrite('edgeflow_dorm/motion_fields_' + str(cur_frame) + '.png', bgr)

@@ -15,10 +15,10 @@ def edgeflow(img_before, img_after, edge_before, edge_after):
     Returns:
         edgeflow[array(x, y, deltax, deltay)]: edge flow for each edge point
     """
-    cv2.imshow("", edge_before)
-    cv2.waitKey(0)
-    cv2.imshow("", edge_after)
-    cv2.waitKey(0)
+    # cv2.imshow("", edge_before)
+    # cv2.waitKey(0)
+    # cv2.imshow("", edge_after)
+    # cv2.waitKey(0)
     
     logging.info("creating {} edge nodes as factor graph node".format(
         np.count_nonzero(edge_before)))

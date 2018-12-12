@@ -21,15 +21,7 @@ class RANSACModel(object):
 
 
 def ransac(data, Model, n, k, t, d):
-    """
-    Args:
-        data(list(object)) – a list of observations
-        model(subclass of RANSACModel) – a model type to explain observed data points
-        n – minimum number of data points required to estimate model parameters
-        k – maximum number of iterations allowed in the algorithm
-        t – threshold value to determine data points that are fit well by model
-        d – number of close data points required to assert that a model fits well to data
-    """
+
     best_model = None
     best_error = float("inf")
     best_inlier_idxs = None
