@@ -98,8 +98,6 @@ def main():
                         action="store_true",
                         help="use cached value when possible.")
     args = parser.parse_args()
-    import IPython
-    IPython.embed()
     motion_based_decomposition(args.image_dir, args.cached)
 
 

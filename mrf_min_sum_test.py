@@ -84,38 +84,39 @@ def produce_motion_fields(I1, I2, edge_image1, patch_size, max_motion_x, max_mot
     final_motion_fields = get_belief(motion_fields, edge_points1, edge_points1_map, max_motion_x, max_motion_y)
     return final_motion_fields, edge_points1
 
-edgeI1 = cv2.imread('./test_image/edge_dorm_0.png',0)
-I1 = cv2.imread('./test_image/dorm1_0.png', 0) / 255.
-I2 = cv2.imread('./test_image/dorm1_1.png', 0) / 255.
+def test():
+    edgeI1 = cv2.imread('./test_image/edge_dorm_0.png',0)
+    I1 = cv2.imread('./test_image/dorm1_0.png', 0) / 255.
+    I2 = cv2.imread('./test_image/dorm1_1.png', 0) / 255.
 
-height, width = edgeI1.shape
-height, width = height//2, width//2
-edgeI1 = cv2.resize(edgeI1, (width, height))
-I2 = cv2.resize(I2, (width, height))
-I1 = cv2.resize(I1, (width, height))
-patch_size = 7
-max_motion_x = 30
-max_motion_y = 30
-message_passing_rounds = 10
+    height, width = edgeI1.shape
+    height, width = height//2, width//2
+    edgeI1 = cv2.resize(edgeI1, (width, height))
+    I2 = cv2.resize(I2, (width, height))
+    I1 = cv2.resize(I1, (width, height))
+    patch_size = 7
+    max_motion_x = 30
+    max_motion_y = 30
+    message_passing_rounds = 10
 
-final_motion_fields, edge_points1 = produce_motion_fields(I1, I2, edgeI1, patch_size, max_motion_x, max_motion_y, message_passing_rounds)
+    final_motion_fields, edge_points1 = produce_motion_fields(I1, I2, edgeI1, patch_size, max_motion_x, max_motion_y, message_passing_rounds)
 
-np.save('motion_fields_test.npy', np.array(final_motion_fields))
-flow = np.zeros((height, width, 2))
-for point_id, motion_field in enumerate(final_motion_fields):
-    point_pos = edge_points1[point_id]
-    max_shift_x = max_motion_x - 1 + patch_size // 2
-    max_shift_y = max_motion_y - 1 + patch_size // 2
-    if point_pos[0] - max_shift_x <= 0 or point_pos[1] - max_shift_y <= 0 \
+    np.save('motion_fields_test.npy', np.array(final_motion_fields))
+    flow = np.zeros((height, width, 2))
+    for point_id, motion_field in enumerate(final_motion_fields):
+        point_pos = edge_points1[point_id]
+        max_shift_x = max_motion_x - 1 + patch_size // 2
+        max_shift_y = max_motion_y - 1 + patch_size // 2
+        if point_pos[0] - max_shift_x <= 0 or point_pos[1] - max_shift_y <= 0 \
             or point_pos[0] + max_shift_x >= height or point_pos[1] + max_shift_y >= width:
                 continue
-    flow[point_pos[0], point_pos[1], :] = final_motion_fields[point_id, :]
+        flow[point_pos[0], point_pos[1], :] = final_motion_fields[point_id, :]
 
-# Visualize Motion Fields.
-mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
-hsv = np.zeros((height, width, 3), dtype=np.uint8)
-hsv[...,1] = 255
-hsv[...,0] = ang*180/np.pi/2
-hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
-bgr = cv2.cvtColor(hsv,cv2.COLOR_HSV2BGR)
-cv2.imwrite('motion_fields_test.png', bgr)
+    # Visualize Motion Fields.
+    mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
+    hsv = np.zeros((height, width, 3), dtype=np.uint8)
+    hsv[...,1] = 255
+    hsv[...,0] = ang*180/np.pi/2
+    hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
+    bgr = cv2.cvtColor(hsv,cv2.COLOR_HSV2BGR)
+    cv2.imwrite('motion_fields_test.png', bgr)

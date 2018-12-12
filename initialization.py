@@ -84,13 +84,18 @@ def calculate_motion(images, edge_maps, cached):
     logging.info("calculating motion.")
     edge_motions = []
     for idx in range(len(images)):
-        if idx == 2:
-            continue
+        if idx != len(images)-1:
+            edge_motion = edgeflow(img_before=images[idx],
+                                   img_after=images[idx+1],
+                                   edge_before=edge_maps[idx],
+                                   edge_after=edge_maps[idx+1])
         else:
-            edge_motion = edgeflow(img_before=images[2],
-                                   img_after=images[idx],
-                                   edge_before=edge_maps[2],
-                                   edge_after=edge_maps[idx])
+            edge_motion = edgeflow(img_before=images[idx],
+                                   img_after=images[idx-1],
+                                   edge_before=edge_maps[idx],
+                                   edge_after=edge_maps[idx-1])
+            # reverse direction for final image.
+            edge_motion[:, 2:] = -edge_motion[:, 2:]
         visualize_edgeflow(edge_motion, images[idx].shape)
         edge_motions.append(edge_motion)
     return edge_motions
@@ -133,6 +138,7 @@ def separate_and_densify_motion_fields(sparse_motions, image_shape):
         logging.info("Classify {} motion points as background.".format(
             len(background_motion)))
 
+        assert len(remain_motion_points) != 0
         obstruction_motion, _ = fit_perspective(remain_motion_points)
         logging.info("Classify {} motion points as obstruction.".format(
             len(obstruction_motion)))

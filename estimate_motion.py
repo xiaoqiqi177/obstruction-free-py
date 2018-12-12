@@ -6,7 +6,10 @@ from visualize import visualize_edgeflow
 from mrf_min_sum_test import produce_motion_fields
 
 
+edgeflow_id = 0
 def edgeflow(img_before, img_after, edge_before, edge_after):
+    #for store
+    global edgeflow_id
     """
     Calculate edge flow from image.
     Returns:
@@ -20,10 +23,10 @@ def edgeflow(img_before, img_after, edge_before, edge_after):
     logging.info("creating {} edge nodes as factor graph node".format(
         np.count_nonzero(edge_before)))
     patch_size = 7
-    max_motion_x = 50
-    max_motion_y = 50
-    motion_fields, edge_points_before = produce_motion_fields(img_before, img_after, edge_before, patch_size=patch_size, max_motion_x=max_motion_x, max_motion_y=max_motion_y, message_passing_rounds=10)
-    height, width = img_before.shape
+    max_motion_x = 20
+    max_motion_y = 20
+    motion_fields, edge_points_before = produce_motion_fields(img_before[:,:,0]/255., img_after[:,:,0]/255., edge_before, patch_size=patch_size, max_motion_x=max_motion_x, max_motion_y=max_motion_y, message_passing_rounds=10)
+    height, width = img_before.shape[:2]
     edgeflow = []
     for point_id, motion_field in enumerate(motion_fields):
         point_pos = edge_points_before[point_id]
@@ -32,6 +35,9 @@ def edgeflow(img_before, img_after, edge_before, edge_after):
         if point_pos[0] - max_shift_x <= 0 or point_pos[1] - max_shift_y <= 0 \
                 or point_pos[0] + max_shift_x >= height or point_pos[1] + max_shift_y >= width:
                     continue
-        edgeflow.append([point_pos[0], point_pos[1], motion_field[point_id, 0], motion_field[point_id, 1]])
-
-    return np.array(edgeflow)
+        edgeflow.append([point_pos[0], point_pos[1], motion_field[0], motion_field[1]])
+    
+    edgeflow = np.array(edgeflow)
+    np.save('edgeflow'+str(edgeflow_id)+'.npy', edgeflow)
+    edgeflow_id += 1
+    return edgeflow
