@@ -251,7 +251,7 @@ def test():
             continue
         edgeflow.append([point_pos[0], point_pos[1], motion_field[0], motion_field[1]])
     edgeflow = np.array(edgeflow)
-
+    
     np.save('./edgeflow_dorm/motion_fields_' + str(cur_frame) + '.npy', edgeflow)
 
     # Visualize Motion Fields.

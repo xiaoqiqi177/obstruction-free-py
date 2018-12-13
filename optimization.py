@@ -78,7 +78,7 @@ def decompose(It, Vt_O, Vt_B, I_O_init, I_B_init, A_init):
     if A:
         loss += constraint_penalty(A)
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=1e-5)
+    optimizer = tf.train.AdamOptimizer(learning_rate=1e-3)
     train = optimizer.minimize(loss)
 
     with tf.Session() as session:

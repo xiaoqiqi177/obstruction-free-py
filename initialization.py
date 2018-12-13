@@ -90,7 +90,7 @@ def calculate_motion(images, edge_maps, cached):
                                    img_after=images[2],
                                    edge_before=edge_maps[idx],
                                    edge_after=edge_maps[2])
-            visualize_edgeflow(edge_motion, images[idx].shape)
+            #visualize_edgeflow(edge_motion, images[idx].shape)
             edge_motions.append(edge_motion)
     return edge_motions
 

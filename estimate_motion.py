@@ -21,7 +21,7 @@ def edgeflow(img_before, img_after, edge_before, edge_after):
     
     logging.info("creating {} edge nodes as factor graph node".format(
         np.count_nonzero(edge_before)))
-    rerun_mrf = True
+    rerun_mrf = False
     if rerun_mrf:
         patch_size = 5
         max_motion_x = 15
