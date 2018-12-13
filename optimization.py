@@ -90,10 +90,10 @@ def decompose(It, Vt_O, Vt_B, I_O_init, I_B_init, A_init):
             I_O, I_B, A = session.run([I_O, I_B, A])
         else:
             I_O, I_B = session.run([I_O, I_B])
-        visualize_image(I_O)
-        visualize_image(I_B)
+        visualize_image(I_O, 'obstruction')
+        visualize_image(I_B, 'background')
         if A is not None:
-            visualize_image(A)
+            visualize_image(A, 'alpha')
     return I_O, I_B, A
 
 

@@ -30,8 +30,8 @@ def visualize_edgeflow(edgeflow, image_shape):
     cv2.destroyAllWindows()
 
 
-def visualize_image(img):
-    cv2.imshow("image", img)
+def visualize_image(img, name):
+    cv2.imshow(name, img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
