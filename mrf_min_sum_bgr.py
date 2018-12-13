@@ -2,6 +2,7 @@ from multiprocessing import Pool
 import numpy as np
 import cv2
 from scipy import signal
+from visualize import visualize_edgeflow
 
 def get_cost_by_motion(I1, I2, point1, patch_size, max_motion_x, max_motion_y):
     """
@@ -253,14 +254,6 @@ def test():
     edgeflow = np.array(edgeflow)
 
     np.save('./edgeflow_dorm/motion_fields_' + str(cur_frame) + '.npy', edgeflow)
-
-    # Visualize Motion Fields.
-    mag, ang = cv2.cartToPolar(edgeflow[...,2], edgeflow[...,3])
-    hsv = np.zeros((height, width, 3), dtype=np.uint8)
-    hsv[...,1] = 255
-    hsv[...,0] = ang*180/np.pi/2
-    hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
-    bgr = cv2.cvtColor(hsv,cv2.COLOR_HSV2BGR)
-    cv2.imwrite('./edgeflow_dorm/motion_fields_' + str(cur_frame) + '.png', bgr)
+    visualize_edgeflow(edgeflow(height, width))
 
 test()
