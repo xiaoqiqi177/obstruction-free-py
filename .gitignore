@@ -2,6 +2,7 @@
 *.png
 *.jpg
 *.npy
+*.pyc
 data
 __pycache__
 .idea
