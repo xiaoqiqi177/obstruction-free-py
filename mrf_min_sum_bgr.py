@@ -6,7 +6,7 @@ from scipy import signal
 def get_cost_by_motion(I1, I2, point1, patch_size, max_motion_x, max_motion_y):
     """
     Args:
-        I1, I2: gray input images
+        I1, I2: bgr input images
         point1: (x, y), point position in I1
         patch_size: to calculate the datacost
         max_motion_x, max_motion_y: motion range within [-max_motion_x+1, max_motion_x)
@@ -14,7 +14,7 @@ def get_cost_by_motion(I1, I2, point1, patch_size, max_motion_x, max_motion_y):
         motion_cost: [max_motion_x*2-1, max_motion_y*2-1], motion cost for one point
     """
     
-    height, width = I1.shape
+    height, width = I1.shape[:2]
     motion_cost = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
     max_shift_x = max_motion_x - 1 + patch_size // 2
     max_shift_y = max_motion_y - 1 + patch_size // 2
@@ -26,12 +26,14 @@ def get_cost_by_motion(I1, I2, point1, patch_size, max_motion_x, max_motion_y):
     # using correlate2d to calculate ncc parallelly
     patch1 = I1[point1[0] - patch_size//2:point1[0] + patch_size//2+1, point1[1]-patch_size//2:point1[1] + patch_size//2+1]
     patch2 = I2[point1[0] - max_shift_x:point1[0]+max_shift_x+1, point1[1]-max_shift_y:point1[1]+max_shift_y+1]
-    corrs = signal.correlate2d(patch2, patch1)
-    sqrt1 = np.sqrt((patch1 * patch1).sum())
-    sqrt2 = np.sqrt(signal.correlate2d(patch2 * patch2, np.ones((patch_size, patch_size))))
-    motion_cost_with_outliners = 1. - corrs / (sqrt1 * sqrt2)
-    motion_cost = motion_cost_with_outliners[patch_size-1:1-patch_size, patch_size-1:1-patch_size]
-    return motion_cost
+    motion_cost = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
+    for c in range(3):
+        corrs = signal.correlate2d(patch2[:,:,c], patch1[:,:,c])
+        sqrt1 = np.sqrt((patch1[:,:,c] * patch1[:,:,c]).sum())
+        sqrt2 = np.sqrt(signal.correlate2d(patch2[:,:,c] * patch2[:,:,c], np.ones((patch_size, patch_size))))
+        motion_cost_with_outliners = 1. - corrs / (sqrt1 * sqrt2)
+        motion_cost += motion_cost_with_outliners[patch_size-1:1-patch_size, patch_size-1:1-patch_size]
+    return motion_cost / 3.
 
 def get_penalty_matrix(max_motion_x, max_motion_y):
     """
@@ -82,7 +84,7 @@ def min_sum(self_motion_fields, neighbor_contribution, w12, penalty_template_mat
 def calculate_w12(I1, point1, point_new):
     """
     Args:
-        I1: input image
+        I1: input gray image
         point1: current point
         point_new: neighboring point
 
@@ -125,13 +127,14 @@ def pass_message(I1, motion_fields, penalty_template_matrix, edge_points1, edge_
     
     # precalculate w12 map
     w12_map = {}
+    I1_gray = cv2.cvtColor(np.uint8(I1*255.), cv2.COLOR_BGR2GRAY) / 255.
     for point_id in range(point_number):
         point1 = edge_points1[point_id]
         for d in range(4):
             direction = directions[d]
             point_new = (point1[0]+direction[0], point1[1]+direction[1])
             if point_new in edge_points1_map:
-                w12 = calculate_w12(I1, point1, point_new)
+                w12 = calculate_w12(I1_gray, point1, point_new)
                 w12_map[(point_id, edge_points1_map[point_new])] = w12
 
     for m_round in range(message_passing_rounds):
@@ -224,12 +227,11 @@ def produce_motion_fields(I1, I2, edge_image1, patch_size, max_motion_x, max_mot
 
 def test():
     cur_frame = 0
-    edgeI1 = cv2.imread('./test_image/edge_dorm_' + str(cur_frame) + '.png',0)
-    I1 = cv2.imread('./test_image/dorm1_' + str(cur_frame) + '.png', 0) / 255.
-    I2 = cv2.imread('./test_image/dorm1_2.png', 0) / 255.
+    edgeI1 = cv2.imread('./test_image_dorm/edge_dorm_quater_' + str(cur_frame) + '.png', 0)
+    I1 = cv2.imread('./test_image_dorm/dorm_quater_' + str(cur_frame) + '.png') / 255.
+    I2 = cv2.imread('./test_image_dorm/dorm_quater_2.png') / 255.
 
     height, width = edgeI1.shape
-    height, width = height//4, width//4
     edgeI1 = cv2.resize(edgeI1, (width, height))
     I2 = cv2.resize(I2, (width, height))
     I1 = cv2.resize(I1, (width, height))
@@ -261,3 +263,4 @@ def test():
     bgr = cv2.cvtColor(hsv,cv2.COLOR_HSV2BGR)
     cv2.imwrite('./edgeflow_dorm/motion_fields_' + str(cur_frame) + '.png', bgr)
 
+test()

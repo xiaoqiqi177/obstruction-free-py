@@ -24,8 +24,8 @@ def edgeflow(img_before, img_after, edge_before, edge_after):
     rerun_mrf = True
     if rerun_mrf:
         patch_size = 5
-        max_motion_x = 20
-        max_motion_y = 20
+        max_motion_x = 15
+        max_motion_y = 15
         motion_fields, edge_points_before = produce_motion_fields(img_before[:,:,0]/255., img_after[:,:,0]/255., edge_before, patch_size=patch_size, max_motion_x=max_motion_x, max_motion_y=max_motion_y, message_passing_rounds=10)
         height, width = img_before.shape[:2]
         edgeflow = []
