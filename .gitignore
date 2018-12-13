@@ -1,5 +1,7 @@
+.DS_Store
 *.png
 *.jpg
 *.npy
 data
 __pycache__
+.idea

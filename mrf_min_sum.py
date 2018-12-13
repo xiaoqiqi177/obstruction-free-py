@@ -217,12 +217,13 @@ def produce_motion_fields(I1, I2, edge_image1, patch_size, max_motion_x, max_mot
         edge_points1_map[tuple(edge_points1[point_id])] = point_id
     
     penalty_template_matrix = get_penalty_matrix(max_motion_x, max_motion_y)
+
     message_map = pass_message(I1, motion_fields, penalty_template_matrix, edge_points1, edge_points1_map, message_passing_rounds, max_motion_x,max_motion_y)
     final_motion_fields = get_belief(motion_fields, message_map, edge_points1, edge_points1_map, max_motion_x, max_motion_y)
     return final_motion_fields, edge_points1
 
 def test():
-    cur_frame = 4
+    cur_frame = 0
     edgeI1 = cv2.imread('./test_image/edge_dorm_' + str(cur_frame) + '.png',0)
     I1 = cv2.imread('./test_image/dorm1_' + str(cur_frame) + '.png', 0) / 255.
     I2 = cv2.imread('./test_image/dorm1_2.png', 0) / 255.
@@ -237,26 +238,27 @@ def test():
     max_motion_y = 15
     message_passing_rounds = 15
 
-    final_motion_fields, edge_points1 = produce_motion_fields(I1, I2, edgeI1, patch_size, max_motion_x, max_motion_y, message_passing_rounds)
-
-    np.save('edgeflow_dorm/motion_fields_' + str(cur_frame) + '.npy', np.array(final_motion_fields))
-    flow = np.zeros((height, width, 2))
-    for point_id, motion_field in enumerate(final_motion_fields):
-        point_pos = edge_points1[point_id]
+    motion_fields, edge_points_before = produce_motion_fields(I1, I2, edgeI1, patch_size, max_motion_x, max_motion_y, message_passing_rounds)
+    edgeflow = []
+    for point_id, motion_field in enumerate(motion_fields):
+        point_pos = edge_points_before[point_id]
         max_shift_x = max_motion_x - 1 + patch_size // 2
         max_shift_y = max_motion_y - 1 + patch_size // 2
         if point_pos[0] - max_shift_x <= 0 or point_pos[1] - max_shift_y <= 0 \
                 or point_pos[0] + max_shift_x >= height or point_pos[1] + max_shift_y >= width:
-                    continue
-        flow[point_pos[0], point_pos[1], :] = final_motion_fields[point_id, :]
+            continue
+        edgeflow.append([point_pos[0], point_pos[1], motion_field[0], motion_field[1]])
+    edgeflow = np.array(edgeflow)
+
+    np.save('./edgeflow_dorm/motion_fields_' + str(cur_frame) + '.npy', edgeflow)
 
     # Visualize Motion Fields.
-    mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
+    mag, ang = cv2.cartToPolar(edgeflow[...,2], edgeflow[...,3])
     hsv = np.zeros((height, width, 3), dtype=np.uint8)
     hsv[...,1] = 255
     hsv[...,0] = ang*180/np.pi/2
     hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
     bgr = cv2.cvtColor(hsv,cv2.COLOR_HSV2BGR)
-    cv2.imwrite('edgeflow_dorm/motion_fields_' + str(cur_frame) + '.png', bgr)
-    
+    cv2.imwrite('./edgeflow_dorm/motion_fields_' + str(cur_frame) + '.png', bgr)
+
 test()
