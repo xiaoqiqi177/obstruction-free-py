@@ -94,7 +94,7 @@ def test():
     edgeI1 = cv2.resize(edgeI1, (width, height))
     I2 = cv2.resize(I2, (width, height))
     I1 = cv2.resize(I1, (width, height))
-    patch_size = 7
+    patch_size = 5
     max_motion_x = 30
     max_motion_y = 30
     message_passing_rounds = 10
