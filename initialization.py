@@ -73,6 +73,8 @@ def extract_edgemap(image):
     """
     Extract edge map from image using canny edge detector.
     """
+    if image.shape[-1]==3:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     image = cv2.blur(image, (3, 3))
     return cv2.Canny(image, threshold1=30, threshold2=90)
 
@@ -168,15 +170,15 @@ def align_background(It, background_motions, otype):
     assert otype == 'r' or otype == 'o'
     logging.info("Use frame {} as reference.".format(
         len(background_motions)//2))
-    height, width = It.shape[1:3]
+    height, width, channel = It.shape[1:4]
     if otype == 'r':
-        I_B = np.ones((height, width, 1))
+        I_B = np.ones((height, width, channel))
         for frame_id in range(len(background_motions)):
             warpy, warpx, warp_img = warpImg(It[frame_id, :, :, :], background_motions[frame_id])
             I_B[warpy, warpx, :] = np.minimum(I_B[warpy, warpx, :], warp_img)
     else:
         I_B = np.zeros((height, width, 1))
-        I_B_cnt = np.zeros((height, width, 1))
+        I_B_cnt = np.zeros((height, width, channel))
         for frame_id in range(len(background_motions)):
             warpy, warpx, warp_img = warpImg(It[frame_id, :, :, :], background_motions[frame_id])
             I_B[warpy, warpx, :] = I_B[warpy, warpx, :] + warp_img

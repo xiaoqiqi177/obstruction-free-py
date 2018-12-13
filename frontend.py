@@ -16,7 +16,7 @@ def read_images(image_dir):
     """
     image_paths = sorted(glob.glob(os.path.join(image_dir, "*.png")))
 
-    images = [cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)[..., np.newaxis]
+    images = [cv2.imread(image_path)
               for image_path in image_paths]
     
     return images
