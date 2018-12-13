@@ -18,6 +18,8 @@ def read_images(image_dir):
 
     images = [cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)[..., np.newaxis]
               for image_path in image_paths]
+    #for test 1/4 images
+    images = [cv2.resize(image, (288, 162)) for image in images]
     return images
 
 
@@ -37,8 +39,10 @@ def motion_based_decomposition(image_dir, otype='r', cached=False):
         = initialize_motion_based_decomposition(images, otype, cached)
 
     optimization_params = OptimizationParams(
-        scales=[1./8, 1./4, 1./2, 1],
-        num_iterations_by_scale=[4, 1, 1, 1])
+        #scales=[1./8, 1./4, 1./2, 1],
+        #num_iterations_by_scale=[4, 1, 1, 1])
+        scales=[1],
+        num_iterations_by_scale=[8])
 
     logging.info("optimizing values.")
     optimize_motion_based_decomposition(
