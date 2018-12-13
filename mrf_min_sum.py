@@ -53,11 +53,11 @@ def get_penalty_matrix(max_motion_x, max_motion_y):
                         penalty_template_matrix[motion_x1+max_motion_x-1, motion_y1+max_motion_y-1, motion_x2+max_motion_x-1, motion_y2+max_motion_y-1] = 0.
     return penalty_template_matrix
 
-def min_sum(self_motion_fields, neighbor_messages, w12, penalty_template_matrix, max_motion_x, max_motion_y):
+def min_sum(self_motion_fields, neighbor_contribution, w12, penalty_template_matrix, max_motion_x, max_motion_y):
     """
     Args:
         self_motion_fields: data cost
-        neighbor_messages: messages from neighbors
+        neighbor_contribution: message sum from neighbors
         w12: penalty weight
         penalty_template_matrix: [max_motion_x*2-1, max_motion_y*2-1, max_motion_x*2-1, max_motion_], 
             to care with cases with small distances
@@ -66,9 +66,6 @@ def min_sum(self_motion_fields, neighbor_messages, w12, penalty_template_matrix,
         message_matrix: [max_motion_x*2-1, max_motion_y*2-1], new message to pass
     """
     message_matrix = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
-    neighbor_contribution = np.zeros((max_motion_x*2-1, max_motion_y*2-1))
-    for neighbor_message in neighbor_messages:
-        neighbor_contribution += neighbor_message
 
     small_weight = 0.005
     real_penalty_matrix = small_weight * penalty_template_matrix
@@ -142,7 +139,6 @@ def pass_message(I1, motion_fields, penalty_template_matrix, edge_points1, edge_
         for d in range(4):
             direction = directions[d]
             for point_id in range(point_number):
-                print(point_id)
                 point1 = edge_points1[point_id]
                 # exclude the message from the neighbor we are passing to
                 point_new = (point1[0]+direction[0], point1[1]+direction[1])
@@ -153,9 +149,13 @@ def pass_message(I1, motion_fields, penalty_template_matrix, edge_points1, edge_
                             point_new_tmp = (point1[0]+directions[i][0], point1[1]+directions[i][1])
                             if point_new_tmp in edge_points1_map:
                                 neighbor_messages.append(message_map[point_id, i])
+                    if len(neighbor_messages):
+                        neighbor_contribution = np.sum(np.array(neighbor_messages), axis=0)
+                    else:
+                        neighbor_contribution = np.zeros((2*max_motion_x-1, 2*max_motion_y-1))
                     # populate the new message map with the next round's messages
                     w12 = w12_map[(point_id, edge_points1_map[point_new])]
-                    next_message_map[edge_points1_map[point_new], 3-d] = min_sum(motion_fields[point_id], neighbor_messages, w12, penalty_template_matrix, max_motion_x, max_motion_y)
+                    next_message_map[edge_points1_map[point_new], 3-d] = min_sum(motion_fields[point_id], neighbor_contribution, w12, penalty_template_matrix, max_motion_x, max_motion_y)
         # update message map
         message_map = next_message_map
     return message_map
@@ -228,13 +228,13 @@ def test():
     I2 = cv2.imread('./test_image/dorm1_2.png', 0) / 255.
 
     height, width = edgeI1.shape
-    height, width = height, width
+    height, width = height//4, width//4
     edgeI1 = cv2.resize(edgeI1, (width, height))
     I2 = cv2.resize(I2, (width, height))
     I1 = cv2.resize(I1, (width, height))
-    patch_size = 9
-    max_motion_x = 60
-    max_motion_y = 60
+    patch_size = 5
+    max_motion_x = 15
+    max_motion_y = 15
     message_passing_rounds = 15
 
     final_motion_fields, edge_points1 = produce_motion_fields(I1, I2, edgeI1, patch_size, max_motion_x, max_motion_y, message_passing_rounds)

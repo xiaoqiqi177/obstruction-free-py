@@ -3,8 +3,7 @@ import numpy as np
 import logging
 
 from visualize import visualize_edgeflow
-from mrf_min_sum_test import produce_motion_fields
-
+from mrf_min_sum import produce_motion_fields
 
 edgeflow_id = 0
 def edgeflow(img_before, img_after, edge_before, edge_after):
@@ -22,11 +21,11 @@ def edgeflow(img_before, img_after, edge_before, edge_after):
     
     logging.info("creating {} edge nodes as factor graph node".format(
         np.count_nonzero(edge_before)))
-    rerun_mrf = False
+    rerun_mrf = True
     if rerun_mrf:
-        patch_size = 9
-        max_motion_x = 60
-        max_motion_y = 60
+        patch_size = 5
+        max_motion_x = 20
+        max_motion_y = 20
         motion_fields, edge_points_before = produce_motion_fields(img_before[:,:,0]/255., img_after[:,:,0]/255., edge_before, patch_size=patch_size, max_motion_x=max_motion_x, max_motion_y=max_motion_y, message_passing_rounds=10)
         height, width = img_before.shape[:2]
         edgeflow = []

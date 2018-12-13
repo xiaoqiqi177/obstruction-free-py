@@ -18,8 +18,7 @@ def read_images(image_dir):
 
     images = [cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)[..., np.newaxis]
               for image_path in image_paths]
-    #for test 1/4 images
-    images = [cv2.resize(image, (288, 162)) for image in images]
+    
     return images
 
 

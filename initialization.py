@@ -90,7 +90,7 @@ def calculate_motion(images, edge_maps, cached):
                                    img_after=images[2],
                                    edge_before=edge_maps[idx],
                                    edge_after=edge_maps[2])
-            #visualize_edgeflow(edge_motion, images[idx].shape)
+            visualize_edgeflow(edge_motion, images[idx].shape)
             edge_motions.append(edge_motion)
     return edge_motions
 
@@ -106,7 +106,7 @@ def interpolate_dense_motion_from_sparse_motion(sparse_motion, image_shape):
                             (grid_x, grid_y), method='nearest', fill_value=0)
 
     dense_motion = np.stack([delta_y_grid, delta_x_grid], axis=-1)
-    #visualize_dense_motion(dense_motion)
+    visualize_dense_motion(dense_motion)
     return dense_motion
 
 
@@ -135,6 +135,8 @@ def separate_and_densify_motion_fields(sparse_motions, image_shape):
         obstruction_motion, _ = fit_perspective(remain_motion_points)
         logging.info("Classify {} motion points as obstruction.".format(
             len(obstruction_motion)))
+        
+        visualize_separated_motion(obstruction_motion, background_motion, image_shape)
         background_motions.append(
             interpolate_dense_motion_from_sparse_motion(background_motion, image_shape))
         obstruction_motions.append(
@@ -149,9 +151,6 @@ def initial_motion_estimation(images, cached):
     motions = calculate_motion(images, edge_maps, cached)
     obstruction_motions, background_motions = separate_and_densify_motion_fields(
         motions, images[0].shape)
-
-    #for om, bm, img in zip(obstruction_motions, background_motions, images):
-    #    visualize_separated_motion(om, bm, img.shape)
 
     return obstruction_motions, background_motions
 
@@ -189,6 +188,8 @@ def initialize_motion_based_decomposition(images, otype, cached):
     assert otype == 'r' or otype == 'o'
     # size: 4 * H * W * 2
     obstruction_motions, background_motions = initial_motion_estimation(images, cached)
+    obstruction_motions = np.array(obstruction_motions[:2] + [np.zeros_like(obstruction_motions[0])] + obstruction_motions[2:])
+    background_motions = np.array(background_motions[:2] + [np.zeros_like(background_motions[0])] + background_motions[2:])
     It = np.array([img / 255. for img in images])
     I_B_init = align_background(It, background_motions, otype)
     if otype == 'o':
@@ -201,7 +202,7 @@ def initialize_motion_based_decomposition(images, otype, cached):
     else:
         A_init = None
         I_O_init = It[2] - I_B_init
-    Vt_O_init = np.array(obstruction_motions[:2] + [np.zeros_like(obstruction_motions[0])] + obstruction_motions[2:])
-    Vt_B_init = np.array(background_motions[:2] + [np.zeros_like(background_motions[0])] + background_motions[2:])
+    Vt_O_init = obstruction_motions
+    Vt_B_init = background_motions
     return It, I_O_init, I_B_init, A_init, Vt_O_init, Vt_B_init
 
