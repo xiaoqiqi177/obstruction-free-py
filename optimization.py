@@ -177,10 +177,10 @@ def optimize_motion_based_decomposition(It, I_O_init, I_B_init, A_init, Vt_O_ini
                             to_shape=current_shape)
         Vt_B = scale_images(Vt_B, from_shape=previous_shape,
                             to_shape=current_shape)
-        visualize_image(I_O)
-        visualize_image(I_B)
+        visualize_image(I_O, 'obstruction_init')
+        visualize_image(I_B, 'background_init')
         if A is not None:
-            visualize_image(A)
+            visualize_image(A, 'alpha_init')
         for _ in range(num_iterations):
             Vt_O, Vt_B = estimate_motion(It_scaled, I_O, I_B, A, Vt_O, Vt_B)
             I_O, I_B, A = decompose(
