@@ -1,3 +1,4 @@
+from multiprocessing import Pool
 import numpy as np
 import cv2
 from scipy import signal
@@ -106,9 +107,10 @@ def calculate_w12(I1, point1, point_new):
     return w12
 
 directions = [[1, 0], [0, 1], [0, -1], [-1, 0]]
-def pass_message(motion_fields, penalty_template_matrix, edge_points1, edge_points1_map, message_passing_rounds, max_motion_x, max_motion_y, I1):
+def pass_message(I1, motion_fields, penalty_template_matrix, edge_points1, edge_points1_map, message_passing_rounds, max_motion_x, max_motion_y):
     """
     Args:
+        I1: input image
         motion_fields: [point_number, max_motion_x*2-1, max_motion_y*2-1], motion cost for all points
         penalty_template_matrix: [max_motion_x*2-1, max_motion_y*2-1, max_motion_x*2-1, max_motion_], 
             to care with cases with small distances
@@ -123,11 +125,24 @@ def pass_message(motion_fields, penalty_template_matrix, edge_points1, edge_poin
     point_number = len(edge_points1)
     message_map = np.zeros((point_number, 4, max_motion_x*2-1, max_motion_y*2-1))
     next_message_map = np.zeros((point_number, 4, max_motion_x*2-1, max_motion_y*2-1))
+    
+    # precalculate w12 map
+    w12_map = {}
+    for point_id in range(point_number):
+        point1 = edge_points1[point_id]
+        for d in range(4):
+            direction = directions[d]
+            point_new = (point1[0]+direction[0], point1[1]+direction[1])
+            if point_new in edge_points1_map:
+                w12 = calculate_w12(I1, point1, point_new)
+                w12_map[(point_id, edge_points1_map[point_new])] = w12
+
     for m_round in range(message_passing_rounds):
         print('m_round: ', m_round)
         for d in range(4):
             direction = directions[d]
             for point_id in range(point_number):
+                print(point_id)
                 point1 = edge_points1[point_id]
                 # exclude the message from the neighbor we are passing to
                 point_new = (point1[0]+direction[0], point1[1]+direction[1])
@@ -139,7 +154,7 @@ def pass_message(motion_fields, penalty_template_matrix, edge_points1, edge_poin
                             if point_new_tmp in edge_points1_map:
                                 neighbor_messages.append(message_map[point_id, i])
                     # populate the new message map with the next round's messages
-                    w12 = calculate_w12(I1, point1, point_new)
+                    w12 = w12_map[(point_id, edge_points1_map[point_new])]
                     next_message_map[edge_points1_map[point_new], 3-d] = min_sum(motion_fields[point_id], neighbor_messages, w12, penalty_template_matrix, max_motion_x, max_motion_y)
         # update message map
         message_map = next_message_map
@@ -202,7 +217,8 @@ def produce_motion_fields(I1, I2, edge_image1, patch_size, max_motion_x, max_mot
         edge_points1_map[tuple(edge_points1[point_id])] = point_id
     
     penalty_template_matrix = get_penalty_matrix(max_motion_x, max_motion_y)
-    message_map = pass_message(motion_fields, penalty_template_matrix, edge_points1, edge_points1_map, message_passing_rounds, max_motion_x,max_motion_y, I1)
+
+    message_map = pass_message(I1, motion_fields, penalty_template_matrix, edge_points1, edge_points1_map, message_passing_rounds, max_motion_x,max_motion_y)
     final_motion_fields = get_belief(motion_fields, message_map, edge_points1, edge_points1_map, max_motion_x, max_motion_y)
     return final_motion_fields, edge_points1
 
@@ -213,7 +229,7 @@ def test():
     I2 = cv2.imread('./test_image/dorm1_2.png', 0) / 255.
 
     height, width = edgeI1.shape
-    height, width = height//4, width//4
+    height, width = height, width
     edgeI1 = cv2.resize(edgeI1, (width, height))
     I2 = cv2.resize(I2, (width, height))
     I1 = cv2.resize(I1, (width, height))

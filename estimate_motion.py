@@ -3,7 +3,7 @@ import numpy as np
 import logging
 
 from visualize import visualize_edgeflow
-from mrf_min_sum import produce_motion_fields
+from mrf_min_sum_test import produce_motion_fields
 
 
 edgeflow_id = 0
