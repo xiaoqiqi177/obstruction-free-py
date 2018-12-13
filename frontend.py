@@ -102,7 +102,7 @@ def main():
                         action="store_true",
                         help="use cached value when possible.")
     args = parser.parse_args()
-    motion_based_decomposition(args.image_dir, otype='r', cached=args.cached)
+    motion_based_decomposition(args.image_dir, otype='o', cached=args.cached)
 
 
 if __name__ == "__main__":
