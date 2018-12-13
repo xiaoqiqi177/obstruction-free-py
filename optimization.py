@@ -50,7 +50,7 @@ def decompose(It, Vt_O, Vt_B, I_O_init, I_B_init, A_init):
     I_O = tf.Variable(I_O_init, name='I_O', dtype=tf.float32)
     I_B = tf.Variable(I_B_init, name='I_B', dtype=tf.float32)
 
-    warp_I_O = tf_warp(It, Vt_O)
+    warp_I_O = tf_warp(tf.tile(tf.expand_dims(I_O, 0), [5, 1, 1, 1]), Vt_O)
     warp_I_B = tf_warp(tf.tile(tf.expand_dims(I_B, 0), [5, 1, 1, 1]), Vt_B)
     
     g_O = spatial_gradient(tf.expand_dims(I_O, 0))
@@ -107,8 +107,8 @@ def estimate_motion(It, I_O, I_B, A, Vt_O_init, Vt_B_init):
 
     Vt_O = tf.Variable(Vt_O_init, name='Vt_O', dtype=tf.float32)
     Vt_B = tf.Variable(Vt_B_init, name='Vt_B', dtype=tf.float32)
-
-    warp_I_O = tf_warp(It, Vt_O)
+    
+    warp_I_O = tf_warp(tf.tile(tf.expand_dims(I_O, 0), [5, 1, 1, 1]), Vt_O)
     warp_I_B = tf_warp(tf.tile(tf.expand_dims(I_B, 0), [5, 1, 1, 1]), Vt_B)
 
     if A is not None:
@@ -159,7 +159,6 @@ def optimize_motion_based_decomposition(It, I_O_init, I_B_init, A_init, Vt_O_ini
     A = A_init
     Vt_O = Vt_O_init
     Vt_B = Vt_B_init
-
     for current_scale, num_iterations in zip(params.scales, params.num_iterations_by_scale):
 
         # Scale values to proper scale.
