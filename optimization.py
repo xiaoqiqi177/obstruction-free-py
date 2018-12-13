@@ -50,14 +50,14 @@ def decompose(It, Vt_O, Vt_B, I_O_init, I_B_init, A_init):
     I_O = tf.Variable(I_O_init, name='I_O', dtype=tf.float32)
     I_B = tf.Variable(I_B_init, name='I_B', dtype=tf.float32)
 
-    warp_I_O = tf_warp(It, Vt_O)
+    warp_I_O = tf_warp(tf.tile(tf.expand_dims(I_O, 0), [5, 1, 1, 1]), Vt_O)
     warp_I_B = tf_warp(tf.tile(tf.expand_dims(I_B, 0), [5, 1, 1, 1]), Vt_B)
     
     g_O = spatial_gradient(tf.expand_dims(I_O, 0))
     g_B = spatial_gradient(tf.expand_dims(I_B, 0))
 
     A = None
-    if A_init:
+    if A_init is not None:
         A = tf.Variable(A_init, name='A', dtype=tf.float32)
         warp_A = tf_warp(tf.tile(tf.expand_dims(A, 0), [5, 1, 1, 1]), Vt_O)
         residual = l1_norm(It - warp_I_O - tf.multiply(warp_A, warp_I_B))
@@ -65,7 +65,7 @@ def decompose(It, Vt_O, Vt_B, I_O_init, I_B_init, A_init):
         residual = l1_norm(It - warp_I_O - warp_I_B)
     
     loss = l1_norm(residual)
-    if A:
+    if A is not None:
         loss += LAMBDA_1 * \
             tf.norm(spatial_gradient(tf.expand_dims(A, 0)), ord=2)**2
     loss += LAMBDA_2 * (l1_norm(g_O) +
@@ -75,10 +75,10 @@ def decompose(It, Vt_O, Vt_B, I_O_init, I_B_init, A_init):
     loss += constraint_penalty(I_O) + \
         constraint_penalty(I_B)
     
-    if A:
+    if A is not None:
         loss += constraint_penalty(A)
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=1e-3)
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
     train = optimizer.minimize(loss)
 
     with tf.Session() as session:
@@ -86,13 +86,13 @@ def decompose(It, Vt_O, Vt_B, I_O_init, I_B_init, A_init):
         for step in range(1000):
             _, loss_val = session.run([train, loss])
             print("step {}:loss = {}".format(step, loss_val))
-        if A:
+        if A is not None:
             I_O, I_B, A = session.run([I_O, I_B, A])
         else:
             I_O, I_B = session.run([I_O, I_B])
         visualize_image(I_O)
         visualize_image(I_B)
-        if A:
+        if A is not None:
             visualize_image(A)
     return I_O, I_B, A
 
@@ -102,16 +102,16 @@ def estimate_motion(It, I_O, I_B, A, Vt_O_init, Vt_B_init):
     It = tf.constant(It, tf.float32)
     I_O = tf.constant(I_O, tf.float32)
     I_B = tf.constant(I_B, tf.float32)
-    if A:
+    if A is not None:
         A = tf.constant(A, tf.float32)
 
     Vt_O = tf.Variable(Vt_O_init, name='Vt_O', dtype=tf.float32)
     Vt_B = tf.Variable(Vt_B_init, name='Vt_B', dtype=tf.float32)
-
-    warp_I_O = tf_warp(It, Vt_O)
+    
+    warp_I_O = tf_warp(tf.tile(tf.expand_dims(I_O, 0), [5, 1, 1, 1]), Vt_O)
     warp_I_B = tf_warp(tf.tile(tf.expand_dims(I_B, 0), [5, 1, 1, 1]), Vt_B)
 
-    if A:
+    if A is not None:
         warp_A = tf_warp(tf.tile(tf.expand_dims(A, 0), [5, 1, 1, 1]), Vt_O)
         residual = It - warp_I_O - tf.multiply(warp_A, warp_I_B)
     else:
@@ -159,7 +159,6 @@ def optimize_motion_based_decomposition(It, I_O_init, I_B_init, A_init, Vt_O_ini
     A = A_init
     Vt_O = Vt_O_init
     Vt_B = Vt_B_init
-
     for current_scale, num_iterations in zip(params.scales, params.num_iterations_by_scale):
 
         # Scale values to proper scale.
@@ -171,7 +170,7 @@ def optimize_motion_based_decomposition(It, I_O_init, I_B_init, A_init, Vt_O_ini
                           to_shape=current_shape)
         I_B = scale_image(I_B, from_shape=previous_shape,
                           to_shape=current_shape)
-        if A:
+        if A is not None:
             A = scale_image(A, from_shape=previous_shape, to_shape=current_shape)
     
         Vt_O = scale_images(Vt_O, from_shape=previous_shape,
@@ -180,7 +179,7 @@ def optimize_motion_based_decomposition(It, I_O_init, I_B_init, A_init, Vt_O_ini
                             to_shape=current_shape)
         visualize_image(I_O)
         visualize_image(I_B)
-        if A:
+        if A is not None:
             visualize_image(A)
         for _ in range(num_iterations):
             Vt_O, Vt_B = estimate_motion(It_scaled, I_O, I_B, A, Vt_O, Vt_B)

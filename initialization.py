@@ -177,7 +177,7 @@ def align_background(It, background_motions, otype):
             warpy, warpx, warp_img = warpImg(It[frame_id, :, :, :], background_motions[frame_id])
             I_B[warpy, warpx, :] = np.minimum(I_B[warpy, warpx, :], warp_img)
     else:
-        I_B = np.zeros((height, width, 1))
+        I_B = np.zeros((height, width, channel))
         I_B_cnt = np.zeros((height, width, channel))
         for frame_id in range(len(background_motions)):
             warpy, warpx, warp_img = warpImg(It[frame_id, :, :, :], background_motions[frame_id])
@@ -196,11 +196,13 @@ def initialize_motion_based_decomposition(images, otype, cached):
     I_B_init = align_background(It, background_motions, otype)
     if otype == 'o':
         # compute alpha map
-        difference = abs(It[2] - I_B_init)
+        It2_gray = cv2.cvtColor(np.uint8(It[2]*255.), cv2.COLOR_BGR2GRAY) / 255.
+        I_B_gray = cv2.cvtColor(np.uint8(I_B_init*255.), cv2.COLOR_BGR2GRAY) / 255.
+        difference = abs(It2_gray - I_B_gray)
         _, A = cv2.threshold(difference, 0.1, 1, cv2.THRESH_BINARY_INV)
         A_init = A[..., np.newaxis]
         # compute Initial I_O
-        I_O_init = It[2] - I_B_init * A_init
+        I_O_init = It[2] - I_B_init * A_init 
     else:
         A_init = None
         I_O_init = It[2] - I_B_init
